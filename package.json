@@ -1,0 +1,42 @@
+{
+  "name": "polymarket-copy-trading-bot",
+  "version": "1.0.0",
+  "description": "Ultra-fast Polymarket copy trading bot with real-time WebSocket monitoring",
+  "main": "bot.js",
+  "type": "module",
+  "scripts": {
+    "start": "node bot.js",
+    "dev": "node --watch bot.js",
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "keywords": [
+    "polymarket",
+    "trading",
+    "bot",
+    "copy-trading",
+    "cryptocurrency",
+    "automation",
+    "websocket",
+    "prediction-markets"
+  ],
+  "author": "Your Name <your.email@example.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/YOUR_USERNAME/polymarket-copy-bot.git"
+  },
+  "bugs": {
+    "url": "https://github.com/YOUR_USERNAME/polymarket-copy-bot/issues"
+  },
+  "homepage": "https://github.com/YOUR_USERNAME/polymarket-copy-bot#readme",
+  "dependencies": {
+    "axios": "^1.6.2",
+    "chalk": "^5.3.0",
+    "dotenv": "^16.3.1",
+    "ws": "^8.16.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}
