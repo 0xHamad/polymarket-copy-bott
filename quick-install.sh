@@ -14,6 +14,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
+GRAY='\033[0;37m'
 NC='\033[0m'
 
 clear
@@ -93,27 +94,33 @@ echo -e "${BLUE}(Get them from: https://polymarket.com → Settings → API)${NC
 echo ""
 
 # Get API credentials
-read -p "$(echo -e ${GREEN}Enter API Key: ${NC})" API_KEY
+echo -e "${GREEN}Enter API Key: ${NC}"
+read API_KEY
 while [[ -z "$API_KEY" ]]; do
     echo -e "${RED}API Key cannot be empty!${NC}"
-    read -p "$(echo -e ${GREEN}Enter API Key: ${NC})" API_KEY
+    echo -e "${GREEN}Enter API Key: ${NC}"
+    read API_KEY
 done
 
 echo ""
-read -sp "$(echo -e ${GREEN}Enter API Secret: ${NC})" API_SECRET
+echo -e "${GREEN}Enter API Secret: ${NC}"
+read -s API_SECRET
 echo ""
 while [[ -z "$API_SECRET" ]]; do
     echo -e "${RED}API Secret cannot be empty!${NC}"
-    read -sp "$(echo -e ${GREEN}Enter API Secret: ${NC})" API_SECRET
+    echo -e "${GREEN}Enter API Secret: ${NC}"
+    read -s API_SECRET
     echo ""
 done
 
 echo ""
-read -sp "$(echo -e ${GREEN}Enter Passphrase: ${NC})" PASSPHRASE
+echo -e "${GREEN}Enter Passphrase: ${NC}"
+read -s PASSPHRASE
 echo ""
 while [[ -z "$PASSPHRASE" ]]; do
     echo -e "${RED}Passphrase cannot be empty!${NC}"
-    read -sp "$(echo -e ${GREEN}Enter Passphrase: ${NC})" PASSPHRASE
+    echo -e "${GREEN}Enter Passphrase: ${NC}"
+    read -s PASSPHRASE
     echo ""
 done
 
@@ -122,11 +129,13 @@ echo ""
 echo -e "${YELLOW}Lead Trader Configuration:${NC}"
 echo -e "${BLUE}Enter the wallet address of the trader you want to copy${NC}"
 echo ""
-read -p "$(echo -e ${GREEN}Lead Trader Address (0x...): ${NC})" LEAD_TRADER
+echo -e "${GREEN}Lead Trader Address (0x...): ${NC}"
+read LEAD_TRADER
 
 while [[ -z "$LEAD_TRADER" ]] || [[ ! "$LEAD_TRADER" =~ ^0x[a-fA-F0-9]{40}$ ]]; do
     echo -e "${RED}Invalid address! Must start with 0x and be 42 characters${NC}"
-    read -p "$(echo -e ${GREEN}Lead Trader Address (0x...): ${NC})" LEAD_TRADER
+    echo -e "${GREEN}Lead Trader Address (0x...): ${NC}"
+    read LEAD_TRADER
 done
 
 # Copy Percentage
@@ -135,12 +144,14 @@ echo -e "${YELLOW}Trading Settings:${NC}"
 echo -e "${BLUE}What % of your balance to use per trade?${NC}"
 echo -e "${GRAY}Recommended: 5-10% for beginners, 10-15% for experienced${NC}"
 echo ""
-read -p "$(echo -e ${GREEN}Copy Percentage (1-25): ${NC})" COPY_PCT
+echo -e "${GREEN}Copy Percentage (1-25): ${NC}"
+read COPY_PCT
 
 # Validate percentage
 while [[ ! "$COPY_PCT" =~ ^[0-9]+$ ]] || [[ "$COPY_PCT" -lt 1 ]] || [[ "$COPY_PCT" -gt 25 ]]; do
     echo -e "${RED}Please enter a number between 1 and 25${NC}"
-    read -p "$(echo -e ${GREEN}Copy Percentage (1-25): ${NC})" COPY_PCT
+    echo -e "${GREEN}Copy Percentage (1-25): ${NC}"
+    read COPY_PCT
 done
 
 # Create .env file
@@ -209,7 +220,8 @@ echo -e "${PURPLE}════════════════════�
 echo ""
 
 # Auto-start option
-read -p "$(echo -e ${YELLOW}Start the bot now? [Y/n]: ${NC})" START_NOW
+echo -e "${YELLOW}Start the bot now? [Y/n]: ${NC}"
+read START_NOW
 START_NOW=${START_NOW:-Y}
 
 if [[ $START_NOW =~ ^[Yy]$ ]]; then
