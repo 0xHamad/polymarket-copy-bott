@@ -20,11 +20,11 @@ class PolymarketCopyBot {
     this.stratosAPI = 'https://stratos-api.polymarket.com';
     
     // Polygon RPC Endpoints (HTTP + WebSocket)
-    this.polygonRPC = process.env.POLYGON_RPC_HTTP || 'https://polygon-rpc.com';
-    this.polygonWSRPC = process.env.POLYGON_RPC_WS || 'wss://polygon-bor-rpc.publicnode.com';
+    this.polygonRPC = process.env.POLYGON_RPC_HTTP || 'https://polygon-mainnet.g.alchemy.com/v2/WvDKpJxE-FsUvhk7_ONi7';
+    this.polygonWSRPC = process.env.POLYGON_RPC_WS || 'wss://polygon-mainnet.g.alchemy.com/v2/WvDKpJxE-FsUvhk7_ONi7';
     
     // Polymarket WebSocket
-    this.polymarketWS = 'wss://ws-subscriptions-clob.polymarket.com/ws/market';
+    this.polymarketWS = 'wss://ws-subscriptions-clob.polymarket.com';
     
     // Contract addresses (Polygon Mainnet)
     this.CTF_EXCHANGE = '0x4bFb41d5B3570DeFd03C39a9A4D8dE6Bd8B8982E';
