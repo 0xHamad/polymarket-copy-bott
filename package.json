@@ -1,5 +1,5 @@
 {
-  "name": "polymarket-copy-trading-bot",
+  "name": "polymarket-copy-trading-bott",
   "version": "1.0.0",
   "description": "Ultra-fast Polymarket copy trading bot with real-time WebSocket monitoring",
   "main": "bot.js",
@@ -19,16 +19,16 @@
     "websocket",
     "prediction-markets"
   ],
-  "author": "Your Name <your.email@example.com>",
+  "author": "hamad",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/YOUR_USERNAME/polymarket-copy-bot.git"
+    "url": "https://github.com/0xhamad/polymarket-copy-bott.git"
   },
   "bugs": {
-    "url": "https://github.com/YOUR_USERNAME/polymarket-copy-bot/issues"
+    "url": "https://github.com/0xhamad/polymarket-copy-bott/issues"
   },
-  "homepage": "https://github.com/YOUR_USERNAME/polymarket-copy-bot#readme",
+  "homepage": "https://github.com/0xhamad/polymarket-copy-bott#readme",
   "dependencies": {
     "axios": "^1.6.2",
     "chalk": "^5.3.0",
