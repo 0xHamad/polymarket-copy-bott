@@ -4,7 +4,7 @@
 
 ### Linux/Mac 🐧🍎
 ```bash
-curl -sSL https://raw.githubusercontent.com/YOUR_USERNAME/polymarket-copy-bot/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/0xhamad/polymarket-copy-bot/main/install.sh | bash
 ```
 
 Or download and run:
