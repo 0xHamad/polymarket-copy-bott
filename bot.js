@@ -1,7 +1,3 @@
-// ============================================
-// ULTRA FAST POLYMARKET COPY TRADING BOT
-// ============================================
-
 import WebSocket from 'ws';
 import axios from 'axios';
 import crypto from 'crypto';
@@ -12,26 +8,20 @@ dotenv.config();
 
 class PolymarketCopyBot {
   constructor() {
-    // Your Polymarket API Credentials
     this.apiKey = process.env.POLY_API_KEY;
     this.apiSecret = process.env.POLY_API_SECRET;
     this.passphrase = process.env.POLY_PASSPHRASE;
-    
-    // Lead Trader Settings
     this.leadTraderAddress = process.env.LEAD_TRADER_ADDRESS;
     this.copyPercentage = parseFloat(process.env.COPY_PERCENTAGE) / 100 || 0.10;
     
-    // API Endpoints
     this.clobAPI = 'https://clob.polymarket.com';
     this.dataAPI = 'https://data-api.polymarket.com';
     this.wsURL = 'wss://ws-subscriptions-clob.polymarket.com/ws/market';
     
-    // Trading State
     this.balance = 0;
     this.activePositions = new Map();
     this.processingOrders = new Set();
     
-    // Performance tracking
     this.stats = {
       tradesCopied: 0,
       successfulTrades: 0,
@@ -43,10 +33,6 @@ class PolymarketCopyBot {
     console.log(chalk.green('🤖 Ultra Fast Copy Trading Bot Initialized'));
   }
 
-  // ============================================
-  // AUTHENTICATION & SIGNATURE
-  // ============================================
-  
   createSignature(timestamp, method, path, body = '') {
     const message = timestamp + method.toUpperCase() + path + body;
     const hmac = crypto.createHmac('sha256', Buffer.from(this.apiSecret, 'base64'));
@@ -68,10 +54,6 @@ class PolymarketCopyBot {
     };
   }
 
-  // ============================================
-  // API CALLS - ULTRA OPTIMIZED
-  // ============================================
-
   async apiRequest(method, endpoint, data = null) {
     const path = endpoint;
     const body = data ? JSON.stringify(data) : '';
@@ -83,7 +65,7 @@ class PolymarketCopyBot {
         url: `${this.clobAPI}${endpoint}`,
         headers,
         data,
-        timeout: 3000 // 3 second timeout for speed
+        timeout: 3000
       });
       return response.data;
     } catch (error) {
@@ -103,20 +85,9 @@ class PolymarketCopyBot {
     }
   }
 
-  async getMarketInfo(marketId) {
-    try {
-      const response = await axios.get(`${this.dataAPI}/markets/${marketId}`);
-      return response.data;
-    } catch (error) {
-      console.error(chalk.red('Failed to get market info'));
-      return null;
-    }
-  }
-
   async placeOrder(orderData) {
     const orderId = `${Date.now()}-${Math.random()}`;
     
-    // Prevent duplicate processing
     if (this.processingOrders.has(orderData.market + orderData.side)) {
       console.log(chalk.yellow('⏭️  Order already processing, skipping...'));
       return null;
@@ -131,7 +102,7 @@ class PolymarketCopyBot {
         type: orderData.type || 'MARKET',
         size: orderData.size.toString(),
         price: orderData.price?.toString(),
-        timeInForce: 'IOC', // Immediate or Cancel for speed
+        timeInForce: 'IOC',
         clientOrderId: orderId
       };
       
@@ -154,19 +125,6 @@ class PolymarketCopyBot {
     }
   }
 
-  async cancelOrder(orderId) {
-    try {
-      await this.apiRequest('DELETE', `/order/${orderId}`);
-      console.log(chalk.yellow('🚫 Order Cancelled:'), orderId);
-    } catch (error) {
-      console.error(chalk.red('Failed to cancel order'));
-    }
-  }
-
-  // ============================================
-  // WEBSOCKET - REAL-TIME MONITORING
-  // ============================================
-
   connectWebSocket() {
     console.log(chalk.blue('🔌 Connecting to Polymarket WebSocket...'));
     
@@ -175,7 +133,6 @@ class PolymarketCopyBot {
     this.ws.on('open', () => {
       console.log(chalk.green('✅ WebSocket Connected!'));
       
-      // Subscribe to lead trader's trades
       this.ws.send(JSON.stringify({
         type: 'subscribe',
         channel: 'user',
@@ -183,7 +140,6 @@ class PolymarketCopyBot {
         address: this.leadTraderAddress
       }));
       
-      // Also subscribe to order book updates for instant price info
       this.ws.send(JSON.stringify({
         type: 'subscribe',
         channel: 'market',
@@ -220,35 +176,22 @@ class PolymarketCopyBot {
     }, 2000);
   }
 
-  // ============================================
-  // TRADE COPYING LOGIC - ULTRA FAST
-  // ============================================
-
   async handleWebSocketMessage(message) {
-    // Filter only lead trader's trades
     if (message.address && message.address.toLowerCase() !== this.leadTraderAddress.toLowerCase()) {
       return;
     }
 
-    // Handle different event types
     switch (message.event) {
       case 'ORDER_CREATED':
-        // Lead trader placed new order
         await this.copyNewOrder(message);
         break;
-        
       case 'ORDER_FILLED':
-        // Lead trader's order got filled
         await this.copyFilledOrder(message);
         break;
-        
       case 'ORDER_CANCELLED':
-        // Lead trader cancelled order
         await this.handleCancelledOrder(message);
         break;
-        
       case 'POSITION_CLOSED':
-        // Lead trader closed position - INSTANT SELL
         await this.closePosition(message);
         break;
     }
@@ -260,7 +203,6 @@ class PolymarketCopyBot {
     console.log(chalk.cyan('Side:'), orderData.side);
     console.log(chalk.cyan('Price:'), orderData.price);
     
-    // Calculate your position size (10% of balance)
     const tradeAmount = this.balance * this.copyPercentage;
     const shares = tradeAmount / parseFloat(orderData.price);
     
@@ -269,13 +211,12 @@ class PolymarketCopyBot {
       return;
     }
     
-    // Place INSTANT market order for speed
     const yourOrder = {
       market: orderData.market,
       side: orderData.side,
-      type: 'MARKET', // Market order = instant execution
+      type: 'MARKET',
       size: shares.toFixed(4),
-      price: null // Market orders don't need price
+      price: null
     };
     
     const result = await this.placeOrder(yourOrder);
@@ -284,7 +225,6 @@ class PolymarketCopyBot {
       this.stats.tradesCopied++;
       this.stats.successfulTrades++;
       
-      // Track position
       this.activePositions.set(orderData.market, {
         orderId: result.orderId,
         side: orderData.side,
@@ -300,7 +240,6 @@ class PolymarketCopyBot {
   async copyFilledOrder(fillData) {
     console.log(chalk.green('✅ Lead Trader Order FILLED!'));
     
-    // If we already have position, update it
     if (this.activePositions.has(fillData.market)) {
       const position = this.activePositions.get(fillData.market);
       console.log(chalk.cyan('📊 Position Updated:'), position);
@@ -317,7 +256,6 @@ class PolymarketCopyBot {
       return;
     }
     
-    // INSTANT MARKET SELL - opposite side of entry
     const closeSide = position.side === 'BUY' ? 'SELL' : 'BUY';
     
     const closeOrder = {
@@ -331,7 +269,6 @@ class PolymarketCopyBot {
     const result = await this.placeOrder(closeOrder);
     
     if (result) {
-      // Calculate P&L
       const exitPrice = parseFloat(positionData.price || position.entryPrice);
       const pnl = (exitPrice - position.entryPrice) * position.shares * (position.side === 'BUY' ? 1 : -1);
       
@@ -342,7 +279,6 @@ class PolymarketCopyBot {
       console.log(chalk.cyan('Exit Price:'), exitPrice);
       console.log(pnl > 0 ? chalk.green('Profit: +$' + pnl.toFixed(2)) : chalk.red('Loss: -$' + Math.abs(pnl).toFixed(2)));
       
-      // Remove from active positions
       this.activePositions.delete(positionData.market);
       
       this.displayStats();
@@ -352,7 +288,6 @@ class PolymarketCopyBot {
   async handleCancelledOrder(cancelData) {
     console.log(chalk.yellow('🚫 Lead Trader Cancelled Order'));
     
-    // If we have pending order, cancel it too
     if (this.activePositions.has(cancelData.market)) {
       const position = this.activePositions.get(cancelData.market);
       await this.cancelOrder(position.orderId);
@@ -360,9 +295,14 @@ class PolymarketCopyBot {
     }
   }
 
-  // ============================================
-  // MONITORING & STATS
-  // ============================================
+  async cancelOrder(orderId) {
+    try {
+      await this.apiRequest('DELETE', `/order/${orderId}`);
+      console.log(chalk.yellow('🚫 Order Cancelled:'), orderId);
+    } catch (error) {
+      console.error(chalk.red('Failed to cancel order'));
+    }
+  }
 
   displayStats() {
     console.log(chalk.bgBlue.white('\n========== BOT STATISTICS =========='));
@@ -389,7 +329,7 @@ class PolymarketCopyBot {
   async monitorBalance() {
     setInterval(async () => {
       await this.getBalance();
-    }, 10000); // Update balance every 10 seconds
+    }, 10000);
   }
 
   displayLivePositions() {
@@ -402,17 +342,12 @@ class PolymarketCopyBot {
         });
         console.log(chalk.bgCyan.black('------------------------\n'));
       }
-    }, 30000); // Display every 30 seconds
+    }, 30000);
   }
-
-  // ============================================
-  // START BOT
-  // ============================================
 
   async start() {
     console.log(chalk.bgGreen.black('\n🚀 STARTING ULTRA FAST COPY TRADING BOT 🚀\n'));
     
-    // Validate config
     if (!this.apiKey || !this.apiSecret || !this.passphrase) {
       console.error(chalk.red('❌ ERROR: API credentials missing in .env file!'));
       process.exit(1);
@@ -428,20 +363,16 @@ class PolymarketCopyBot {
     console.log(chalk.gray('Copy Percentage:'), chalk.white((this.copyPercentage * 100).toFixed(0) + '%'));
     console.log();
     
-    // Get initial balance
     console.log(chalk.yellow('💰 Fetching account balance...'));
     await this.getBalance();
     console.log(chalk.green('✅ Balance:'), chalk.white('$' + this.balance.toFixed(2)));
     console.log();
     
-    // Start WebSocket connection
     this.connectWebSocket();
     
-    // Start monitoring
     this.monitorBalance();
     this.displayLivePositions();
     
-    // Display stats every minute
     setInterval(() => {
       this.displayStats();
     }, 60000);
@@ -449,10 +380,6 @@ class PolymarketCopyBot {
     console.log(chalk.green('✅ Bot is now running! Waiting for trades...\n'));
   }
 }
-
-// ============================================
-// RUN THE BOT
-// ============================================
 
 const bot = new PolymarketCopyBot();
 bot.start().catch(error => {
