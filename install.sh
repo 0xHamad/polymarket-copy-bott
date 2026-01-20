@@ -7,91 +7,82 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 CYAN='\033[0;36m'
 MAGENTA='\033[0;35m'
-NC='\033[0m' # No Color
+BOLD='\033[1m'
+NC='\033[0m'
 
 clear
 
-echo -e "${GREEN}"
-echo "╔════════════════════════════════════════════════╗"
-echo "║   🚀 Polymarket Copy Trading Bot Installer    ║"
-echo "║        Automated Setup - Step by Step          ║"
-echo "╚════════════════════════════════════════════════╝"
+echo -e "${BOLD}${GREEN}"
+cat << "EOF"
+╔══════════════════════════════════════════════════════════╗
+║                                                          ║
+║     🤖 POLYMARKET COPY TRADING BOT - AUTO INSTALLER     ║
+║                                                          ║
+║         One Command Setup - Fully Automated              ║
+║                                                          ║
+╚══════════════════════════════════════════════════════════╝
+EOF
 echo -e "${NC}"
 echo ""
 
-# Function to pause and wait for user
-pause() {
-    echo ""
-    echo -e "${YELLOW}Press ENTER to continue...${NC}"
-    read
-    echo ""
-}
-
-# Function to read input with validation
-read_value() {
-    local prompt="$1"
-    local default="$2"
-    local value=""
-    
-    while [ -z "$value" ]; do
-        echo -e "${CYAN}$prompt${NC}"
-        if [ -n "$default" ]; then
-            echo -e "${YELLOW}(Press ENTER for default: $default)${NC}"
-        fi
-        echo -n "> "
-        read input
-        
-        if [ -n "$input" ]; then
-            value="$input"
-        elif [ -n "$default" ]; then
-            value="$default"
-        else
-            echo -e "${RED}❌ This field is required!${NC}"
-            echo ""
-        fi
+# Spinner function
+spinner() {
+    local pid=$1
+    local delay=0.1
+    local spinstr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+    while [ "$(ps a | awk '{print $1}' | grep $pid)" ]; do
+        local temp=${spinstr#?}
+        printf " [%c]  " "$spinstr"
+        local spinstr=$temp${spinstr%"$temp"}
+        sleep $delay
+        printf "\b\b\b\b\b\b"
     done
-    
-    echo "$value"
+    printf "    \b\b\b\b"
 }
 
-# Check if Node.js is installed
-echo -e "${BLUE}[1/8] Checking Node.js installation...${NC}"
+# Function to show step
+show_step() {
+    echo -e "${BOLD}${BLUE}[STEP $1]${NC} ${CYAN}$2${NC}"
+}
+
+# Function to show success
+show_success() {
+    echo -e "${GREEN}✅ $1${NC}"
+}
+
+# Function to show info
+show_info() {
+    echo -e "${YELLOW}ℹ️  $1${NC}"
+}
+
+# Check Node.js
+show_step "1/7" "Checking system requirements..."
 if ! command -v node &> /dev/null; then
-    echo -e "${YELLOW}Node.js not found. Installing...${NC}"
-    curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash - >/dev/null 2>&1
-    sudo apt-get install -y nodejs >/dev/null 2>&1
+    show_info "Installing Node.js..."
+    curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash - >/dev/null 2>&1 &
+    spinner $!
+    sudo apt-get install -y nodejs >/dev/null 2>&1 &
+    spinner $!
 fi
-echo -e "${GREEN}✅ Node.js $(node -v) ready${NC}"
-pause
+show_success "Node.js $(node -v) ready"
+echo ""
 
-# Create project directory
-echo -e "${BLUE}[2/8] Setting up project directory...${NC}"
+# Setup directory
+show_step "2/7" "Creating project..."
 PROJECT_DIR="polymarket-copy-bot"
+[ -d "$PROJECT_DIR" ] && rm -rf "$PROJECT_DIR"
+mkdir -p "$PROJECT_DIR" && cd "$PROJECT_DIR"
+show_success "Project directory created"
+echo ""
 
-if [ -d "$PROJECT_DIR" ]; then
-    echo -e "${YELLOW}⚠️  Directory exists. Removing old installation...${NC}"
-    rm -rf "$PROJECT_DIR"
-fi
-
-mkdir -p "$PROJECT_DIR"
-cd "$PROJECT_DIR"
-echo -e "${GREEN}✅ Project directory created: $(pwd)${NC}"
-pause
-
-# Install dependencies
-echo -e "${BLUE}[3/8] Installing required packages...${NC}"
+# Install packages
+show_step "3/7" "Installing dependencies..."
 cat > package.json << 'EOF'
 {
   "name": "polymarket-copy-bot",
-  "version": "1.0.0",
-  "description": "Automated Polymarket Copy Trading Bot",
-  "main": "bot.js",
+  "version": "2.0.0",
   "type": "module",
-  "scripts": {
-    "start": "node bot.js"
-  },
-  "keywords": ["polymarket", "trading", "bot"],
-  "license": "MIT",
+  "scripts": {"start": "node bot.js"},
   "dependencies": {
     "axios": "^1.6.2",
     "chalk": "^5.3.0",
@@ -100,173 +91,146 @@ cat > package.json << 'EOF'
   }
 }
 EOF
+npm install --silent >/dev/null 2>&1 &
+spinner $!
+show_success "Dependencies installed"
+echo ""
 
-npm install --silent 2>&1 | grep -v "npm WARN"
-echo -e "${GREEN}✅ All packages installed successfully${NC}"
-pause
-
-# Start Configuration
+# Configuration
 clear
-echo -e "${MAGENTA}"
-echo "╔════════════════════════════════════════════════╗"
-echo "║           🔧 CONFIGURATION WIZARD 🔧           ║"
-echo "╚════════════════════════════════════════════════╝"
+echo -e "${BOLD}${MAGENTA}"
+cat << "EOF"
+╔══════════════════════════════════════════════════════════╗
+║                   🔧 CONFIGURATION                       ║
+╚══════════════════════════════════════════════════════════╝
+EOF
 echo -e "${NC}"
 echo ""
-echo -e "${YELLOW}Ab hum aapki trading bot ko configure karenge.${NC}"
-echo -e "${YELLOW}Har step ko dhyan se follow karen.${NC}"
-pause
 
-# Step 1: API Key
-clear
-echo -e "${BLUE}[4/8] Step 1 of 5: Polymarket API Key${NC}"
-echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+show_info "Simple setup - Sari details fill karen"
 echo ""
-echo -e "${CYAN}📌 Kya hai ye?${NC}"
-echo "   API Key aapki identity hai Polymarket par."
-echo ""
-echo -e "${CYAN}📌 Kaise milega?${NC}"
-echo "   1. Browser mein jao: ${GREEN}https://polymarket.com/settings${NC}"
-echo "   2. ${YELLOW}'Builder'${NC} tab par click karo"
-echo "   3. ${YELLOW}'Create API Key'${NC} button press karo"
-echo "   4. Sabse pehli value jo dikhegi wo ${GREEN}API Key${NC} hai"
-echo ""
-echo -e "${CYAN}📌 Example:${NC}"
-echo "   550e8400-e29b-41d4-a716-446655440000"
-echo ""
-API_KEY=$(read_value "Apni POLY_API_KEY yahan paste karen:" "")
-echo -e "${GREEN}✅ API Key saved${NC}"
-pause
 
-# Step 2: API Secret
-clear
-echo -e "${BLUE}[5/8] Step 2 of 5: Polymarket API Secret${NC}"
-echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+# Section 1: Polymarket API
+echo -e "${BOLD}${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${BOLD}${GREEN}📡 SECTION 1: POLYMARKET API CREDENTIALS${NC}"
+echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
-echo -e "${CYAN}📌 Kya hai ye?${NC}"
-echo "   API Secret ek secure code hai jo aapke orders ko authenticate karta hai."
+echo -e "${YELLOW}Credentials kahan se milenge?${NC}"
+echo -e "  ${GREEN}1.${NC} https://polymarket.com/settings par jao"
+echo -e "  ${GREEN}2.${NC} 'Builder' tab mein jao"
+echo -e "  ${GREEN}3.${NC} 'Create API Key' click karo"
 echo ""
-echo -e "${CYAN}📌 Kaise milega?${NC}"
-echo "   Same jagah se jahan API Key mila tha:"
-echo "   1. ${GREEN}https://polymarket.com/settings${NC} > Builder tab"
-echo "   2. ${GREEN}API Key${NC} ke neeche ${YELLOW}Secret${NC} dikhega"
-echo "   3. Wo copy karen (long base64 string hogi)"
-echo ""
-echo -e "${CYAN}📌 Example:${NC}"
-echo "   dGhpc2lzYXNlY3JldGtleWV4YW1wbGU="
-echo ""
-API_SECRET=$(read_value "Apna POLY_API_SECRET yahan paste karen:" "")
-echo -e "${GREEN}✅ API Secret saved${NC}"
-pause
 
-# Step 3: Passphrase
-clear
-echo -e "${BLUE}[6/8] Step 3 of 5: Polymarket API Passphrase${NC}"
-echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+read -p "$(echo -e ${BOLD}${CYAN}Enter API Key${NC}): " API_KEY
+read -p "$(echo -e ${BOLD}${CYAN}Enter API Secret${NC}): " API_SECRET
+read -p "$(echo -e ${BOLD}${CYAN}Enter Passphrase${NC}): " API_PASSPHRASE
 echo ""
-echo -e "${CYAN}📌 Kya hai ye?${NC}"
-echo "   Passphrase ek additional security layer hai."
-echo ""
-echo -e "${CYAN}📌 Kaise milega?${NC}"
-echo "   API Key aur Secret ke saath hi ye bhi dikhta hai:"
-echo "   1. ${GREEN}https://polymarket.com/settings${NC} > Builder tab"
-echo "   2. ${YELLOW}Passphrase${NC} field se copy karen"
-echo ""
-echo -e "${CYAN}📌 Example:${NC}"
-echo "   mySecurePassphrase123"
-echo ""
-API_PASSPHRASE=$(read_value "Apna POLY_PASSPHRASE yahan paste karen:" "")
-echo -e "${GREEN}✅ API Passphrase saved${NC}"
-pause
 
-# Step 4: Your Wallet
-clear
-echo -e "${BLUE}[7/8] Step 4 of 5: Aapka Polymarket Wallet Address${NC}"
-echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+# Section 2: Wallet Addresses
+echo -e "${BOLD}${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${BOLD}${GREEN}💰 SECTION 2: WALLET ADDRESSES${NC}"
+echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
-echo -e "${CYAN}📌 Kya hai ye?${NC}"
-echo "   Ye aapka Polymarket wallet address hai jahan aapka USDC hai."
-echo ""
-echo -e "${CYAN}📌 Kaise milega?${NC}"
-echo "   1. ${GREEN}https://polymarket.com${NC} par jao"
-echo "   2. Top-right corner mein apna ${YELLOW}profile${NC} click karo"
-echo "   3. Wallet address dikhega (${YELLOW}0x${NC} se shuru hoga)"
-echo "   4. Copy karo"
-echo ""
-echo -e "${CYAN}📌 Example:${NC}"
-echo "   0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb"
-echo ""
-echo -e "${RED}⚠️  IMPORTANT:${NC} Is wallet mein USDC hona chahiye!"
-echo ""
-YOUR_WALLET=$(read_value "Apna wallet address (0x se shuru) yahan paste karen:" "")
-echo -e "${GREEN}✅ Your wallet address saved${NC}"
-pause
 
-# Step 5: Lead Trader
-clear
-echo -e "${BLUE}[8/8] Step 5 of 5: Lead Trader Ka Wallet Address${NC}"
-echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+read -p "$(echo -e ${BOLD}${CYAN}Your Wallet Address${NC} ${YELLOW}(0x...)${NC}): " YOUR_WALLET
+echo -e "${YELLOW}💡 Ye aapka Polymarket wallet hai (Profile > Wallet Address)${NC}"
 echo ""
-echo -e "${CYAN}📌 Kya hai ye?${NC}"
-echo "   Jis trader ki trades copy karni hain uska wallet address."
-echo ""
-echo -e "${CYAN}📌 Kaise milega?${NC}"
-echo "   1. ${GREEN}https://polymarket.com/leaderboard${NC} par jao"
-echo "   2. Successful traders dekho"
-echo "   3. Unka wallet address copy karo"
-echo ""
-echo -e "${CYAN}📌 Ya default use karen:${NC}"
-echo "   ${GREEN}0x6031b6eed1c97e853c6e0f03ad3ce3529351f96d${NC}"
-echo "   (Active trader - gabagool22)"
-echo ""
-LEAD_TRADER=$(read_value "Lead trader ka wallet address:" "0x6031b6eed1c97e853c6e0f03ad3ce3529351f96d")
-echo -e "${GREEN}✅ Lead trader address saved${NC}"
-pause
 
-# Step 6: Amount
-clear
-echo -e "${BLUE}[BONUS] Trading Amount Setting${NC}"
-echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+read -p "$(echo -e ${BOLD}${CYAN}Lead Trader Address${NC} ${YELLOW}[Enter for default]${NC}): " LEAD_TRADER
+LEAD_TRADER=${LEAD_TRADER:-0x6031b6eed1c97e853c6e0f03ad3ce3529351f96d}
+echo -e "${GREEN}✓ Using: ${LEAD_TRADER:0:10}...${LEAD_TRADER: -8}${NC}"
 echo ""
-echo -e "${CYAN}📌 Kya hai ye?${NC}"
-echo "   Har trade mein kitne dollars lagane hain."
-echo ""
-echo -e "${CYAN}📌 Examples:${NC}"
-echo "   • ${YELLOW}10${NC}  = Har trade mein $10 lagega"
-echo "   • ${YELLOW}50${NC}  = Har trade mein $50 lagega"
-echo "   • ${YELLOW}100${NC} = Har trade mein $100 lagega"
-echo ""
-echo -e "${RED}⚠️  Note:${NC} Aapke wallet mein kam se kam itna USDC hona chahiye."
-echo ""
-AMOUNT_PER_TRADE=$(read_value "Har trade mein kitne dollars lagane hain?" "10")
-echo -e "${GREEN}✅ Trading amount set: \$$AMOUNT_PER_TRADE${NC}"
-pause
 
-# Create .env file
-clear
-echo -e "${BLUE}Saving configuration...${NC}"
+# Section 3: Trading Amount
+echo -e "${BOLD}${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${BOLD}${GREEN}💵 SECTION 3: TRADING AMOUNT${NC}"
+echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+
+read -p "$(echo -e ${BOLD}${CYAN}Amount Per Trade in \$USD${NC} ${YELLOW}[10]${NC}): " AMOUNT
+AMOUNT=${AMOUNT:-10}
+echo -e "${GREEN}✓ Har trade mein lagega: \$$AMOUNT${NC}"
+echo ""
+
+# Section 4: Polygon RPC Endpoints
+echo -e "${BOLD}${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${BOLD}${GREEN}🔗 SECTION 4: POLYGON RPC ENDPOINTS${NC}"
+echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+echo -e "${YELLOW}Free RPC endpoints kahan se milenge?${NC}"
+echo -e "  ${GREEN}Option 1 (Recommended):${NC} https://www.alchemy.com"
+echo -e "    • Sign up for free account"
+echo -e "    • Create Polygon Mainnet app"
+echo -e "    • Copy HTTP aur WebSocket URLs"
+echo ""
+echo -e "  ${GREEN}Option 2:${NC} https://infura.io"
+echo -e "  ${GREEN}Option 3:${NC} https://chainstack.com"
+echo ""
+echo -e "${YELLOW}Example URLs:${NC}"
+echo -e "  ${CYAN}HTTP:${NC} https://polygon-mainnet.g.alchemy.com/v2/YOUR_KEY"
+echo -e "  ${CYAN}WSS:${NC}  wss://polygon-mainnet.g.alchemy.com/v2/YOUR_KEY"
+echo ""
+
+read -p "$(echo -e ${BOLD}${CYAN}Polygon RPC HTTP URL${NC} ${YELLOW}[Enter for demo]${NC}): " POLYGON_HTTP
+POLYGON_HTTP=${POLYGON_HTTP:-https://polygon-mainnet.g.alchemy.com/v2/demo}
+echo ""
+
+read -p "$(echo -e ${BOLD}${CYAN}Polygon RPC WebSocket URL${NC} ${YELLOW}[Enter for demo]${NC}): " POLYGON_WSS
+POLYGON_WSS=${POLYGON_WSS:-wss://polygon-mainnet.g.alchemy.com/v2/demo}
+echo ""
+
+if [[ "$POLYGON_HTTP" == *"demo"* ]] || [[ "$POLYGON_WSS" == *"demo"* ]]; then
+    echo -e "${YELLOW}⚠️  Demo RPC endpoints use ho rahe hain${NC}"
+    echo -e "${YELLOW}   Better performance ke liye apna free Alchemy account banao${NC}"
+    echo ""
+fi
+
+# Validate inputs
+if [[ -z "$API_KEY" ]] || [[ -z "$API_SECRET" ]] || [[ -z "$API_PASSPHRASE" ]] || [[ -z "$YOUR_WALLET" ]]; then
+    echo -e "${RED}❌ Error: All Polymarket fields are required!${NC}"
+    exit 1
+fi
+
+# Create .env
+show_step "4/7" "Saving configuration..."
 cat > .env << EOF
-# Polymarket API Credentials
+# ═══════════════════════════════════════════════════════════
+# POLYMARKET COPY TRADING BOT - AUTO GENERATED CONFIG
+# ═══════════════════════════════════════════════════════════
+
+# ┌─────────────────────────────────────────────────────────┐
+# │  POLYMARKET API CREDENTIALS                              │
+# └─────────────────────────────────────────────────────────┘
 POLY_API_KEY=$API_KEY
 POLY_API_SECRET=$API_SECRET
 POLY_PASSPHRASE=$API_PASSPHRASE
 
-# Wallet Addresses
+# ┌─────────────────────────────────────────────────────────┐
+# │  WALLET ADDRESSES                                        │
+# └─────────────────────────────────────────────────────────┘
 YOUR_WALLET_ADDRESS=$YOUR_WALLET
 LEAD_TRADER_ADDRESS=$LEAD_TRADER
 
-# Trading Settings
-AMOUNT_PER_TRADE=$AMOUNT_PER_TRADE
+# ┌─────────────────────────────────────────────────────────┐
+# │  TRADING SETTINGS                                        │
+# └─────────────────────────────────────────────────────────┘
+AMOUNT_PER_TRADE=$AMOUNT
 
-# Polygon RPC
-POLYGON_RPC_HTTP=https://polygon-mainnet.g.alchemy.com/v2/demo
-POLYGON_RPC_WS=wss://polygon-mainnet.g.alchemy.com/v2/demo
+# ┌─────────────────────────────────────────────────────────┐
+# │  POLYGON RPC ENDPOINTS                                   │
+# └─────────────────────────────────────────────────────────┘
+POLYGON_RPC_HTTP=$POLYGON_HTTP
+POLYGON_RPC_WS=$POLYGON_WSS
+
+# ═══════════════════════════════════════════════════════════
+# Configuration saved on: $(date)
+# ═══════════════════════════════════════════════════════════
 EOF
-echo -e "${GREEN}✅ Configuration file created${NC}"
-sleep 1
+show_success "Configuration saved to .env"
+echo ""
 
-# Download bot.js
-echo -e "${BLUE}Installing bot code...${NC}"
+# Create bot.js
+show_step "5/7" "Installing bot engine..."
 cat > bot.js << 'EOFBOT'
 import WebSocket from 'ws';
 import axios from 'axios';
@@ -281,228 +245,256 @@ class PolymarketCopyBot {
     this.apiKey = process.env.POLY_API_KEY;
     this.apiSecret = process.env.POLY_API_SECRET;
     this.passphrase = process.env.POLY_PASSPHRASE;
-    this.yourWalletAddress = process.env.YOUR_WALLET_ADDRESS?.toLowerCase();
-    this.leadTraderAddress = process.env.LEAD_TRADER_ADDRESS?.toLowerCase();
+    this.yourWallet = process.env.YOUR_WALLET_ADDRESS?.toLowerCase();
+    this.leadTrader = process.env.LEAD_TRADER_ADDRESS?.toLowerCase();
     this.amountPerTrade = parseFloat(process.env.AMOUNT_PER_TRADE) || 10;
+    this.polygonHttp = process.env.POLYGON_RPC_HTTP;
+    this.polygonWss = process.env.POLYGON_RPC_WS;
     
-    this.clobAPI = 'https://clob.polymarket.com';
     this.dataAPI = 'https://data-api.polymarket.com';
-    
     this.balance = 0;
-    this.activePositions = new Map();
     this.processedTrades = new Set();
     this.lastPollTime = 0;
     
     this.stats = {
-      tradesCopied: 0,
-      successfulTrades: 0,
-      failedTrades: 0,
+      copied: 0,
+      success: 0,
+      failed: 0,
       startTime: Date.now()
     };
   }
 
-  async getYourBalance() {
+  async getBalance() {
     try {
-      const response = await axios.get(
-        `${this.dataAPI}/balance?address=${this.yourWalletAddress}`,
-        { timeout: 5000 }
-      );
-      this.balance = parseFloat(response.data?.balance || 0);
+      const res = await axios.get(`${this.dataAPI}/balance?address=${this.yourWallet}`, {timeout: 5000});
+      this.balance = parseFloat(res.data?.balance || 0);
       return this.balance;
-    } catch (error) {
+    } catch (e) {
       return 0;
     }
   }
 
-  async pollLeadTraderActivity() {
+  async pollTrades() {
     try {
       const now = Date.now();
       if (now - this.lastPollTime < 3000) return;
       this.lastPollTime = now;
       
-      const response = await axios.get(
-        `${this.dataAPI}/activity?user=${this.leadTraderAddress}&type=TRADE&limit=20`,
-        { timeout: 5000 }
+      const res = await axios.get(
+        `${this.dataAPI}/activity?user=${this.leadTrader}&type=TRADE&limit=20`,
+        {timeout: 5000}
       );
       
-      const activities = response.data || [];
-      const nowSeconds = Math.floor(Date.now() / 1000);
+      const trades = res.data || [];
+      const nowSec = Math.floor(Date.now() / 1000);
       
-      const newTrades = activities.filter(activity => {
-        const ageSeconds = nowSeconds - activity.timestamp;
-        const tradeHash = `${activity.transactionHash}-${activity.timestamp}`;
-        
-        if (this.processedTrades.has(tradeHash)) return false;
-        return ageSeconds >= 0 && ageSeconds < 45;
+      const newTrades = trades.filter(t => {
+        const age = nowSec - t.timestamp;
+        const hash = `${t.transactionHash}-${t.timestamp}`;
+        if (this.processedTrades.has(hash)) return false;
+        return age >= 0 && age < 45;
       });
       
       if (newTrades.length > 0) {
-        console.log(chalk.yellow(`\n🔔 Found ${newTrades.length} NEW trade(s)!`));
+        console.log(chalk.yellow(`\n🔔 ${newTrades.length} new trade(s) found!`));
         for (const trade of newTrades) {
           await this.copyTrade(trade);
         }
       }
-    } catch (error) {}
+    } catch (e) {}
   }
 
-  async copyTrade(tradeData) {
-    const tradeHash = `${tradeData.transactionHash}-${tradeData.timestamp}`;
-    if (this.processedTrades.has(tradeHash)) return;
+  async copyTrade(trade) {
+    const hash = `${trade.transactionHash}-${trade.timestamp}`;
+    if (this.processedTrades.has(hash)) return;
     
-    this.processedTrades.add(tradeHash);
+    this.processedTrades.add(hash);
     if (this.processedTrades.size > 1000) {
-      const toDelete = Array.from(this.processedTrades).slice(0, 100);
-      toDelete.forEach(hash => this.processedTrades.delete(hash));
+      const del = Array.from(this.processedTrades).slice(0, 100);
+      del.forEach(h => this.processedTrades.delete(h));
     }
     
-    const price = parseFloat(tradeData.price);
-    const yourShares = this.amountPerTrade / price;
+    const price = parseFloat(trade.price);
+    const shares = this.amountPerTrade / price;
     
-    console.log(chalk.magenta('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
-    console.log(chalk.magenta('🆕 NEW TRADE DETECTED'));
-    console.log(chalk.cyan('Market:'), tradeData.title);
-    console.log(chalk.cyan('Side:'), chalk.white(tradeData.side));
-    console.log(chalk.cyan('Outcome:'), chalk.white(tradeData.outcome));
-    console.log(chalk.cyan('Price:'), chalk.white(`$${price.toFixed(4)}`));
-    console.log(chalk.cyan('Your Amount:'), chalk.green(`$${this.amountPerTrade}`));
-    console.log(chalk.cyan('Your Shares:'), chalk.green(`${yourShares.toFixed(2)}`));
+    console.log(chalk.magenta('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
+    console.log(chalk.bold.green('🆕 NEW TRADE'));
+    console.log(chalk.cyan('Market:  ') + chalk.white(trade.title));
+    console.log(chalk.cyan('Side:    ') + chalk.white(trade.side));
+    console.log(chalk.cyan('Outcome: ') + chalk.white(trade.outcome));
+    console.log(chalk.cyan('Price:   ') + chalk.white(`$${price.toFixed(4)}`));
+    console.log(chalk.cyan('Amount:  ') + chalk.green(`$${this.amountPerTrade}`));
+    console.log(chalk.cyan('Shares:  ') + chalk.green(`${shares.toFixed(2)}`));
     
-    if (tradeData.side === 'BUY' && this.balance < this.amountPerTrade) {
-      console.log(chalk.red(`❌ Insufficient balance: $${this.balance.toFixed(2)}`));
-      console.log(chalk.magenta('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'));
+    if (trade.side === 'BUY' && this.balance < this.amountPerTrade) {
+      console.log(chalk.red(`\n❌ Low balance: $${this.balance.toFixed(2)} < $${this.amountPerTrade}`));
+      console.log(chalk.yellow('💡 Deposit USDC to your Polymarket wallet'));
+      console.log(chalk.magenta('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'));
       return;
     }
     
-    console.log(chalk.yellow('⚠️  Order simulated (configure real API for live trading)'));
-    this.stats.tradesCopied++;
-    this.stats.successfulTrades++;
+    console.log(chalk.yellow('\n⚠️  DEMO MODE - Trade logged (not executed)'));
+    console.log(chalk.gray('Configure API keys properly for live trading'));
     
-    console.log(chalk.green('✅ Trade logged successfully!'));
-    this.displayQuickStats();
-    console.log(chalk.magenta('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'));
-  }
-
-  displayQuickStats() {
-    console.log(chalk.bgBlue.white('\n═══ STATS ═══'));
-    console.log(chalk.cyan('Balance:'), chalk.white(`$${this.balance.toFixed(2)}`));
-    console.log(chalk.cyan('Copied:'), chalk.white(this.stats.tradesCopied));
-    console.log(chalk.cyan('Success:'), chalk.green(this.stats.successfulTrades));
-    console.log(chalk.cyan('Failed:'), chalk.red(this.stats.failedTrades));
-    console.log(chalk.bgBlue.white('═════════════\n'));
+    this.stats.copied++;
+    this.stats.success++;
+    
+    console.log(chalk.green('\n✅ Trade processed!'));
+    console.log(chalk.cyan(`📊 Total copied: ${this.stats.copied} | Success: ${this.stats.success}`));
+    console.log(chalk.magenta('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'));
   }
 
   async start() {
-    console.log(chalk.bgGreen.black('\n╔══════════════════════════════════════════╗'));
-    console.log(chalk.bgGreen.black('║     🚀 POLYMARKET COPY TRADING BOT 🚀   ║'));
-    console.log(chalk.bgGreen.black('╚══════════════════════════════════════════╝\n'));
+    console.clear();
+    console.log(chalk.bold.green('\n╔══════════════════════════════════════════╗'));
+    console.log(chalk.bold.green('║   🤖 POLYMARKET COPY TRADING BOT 🤖     ║'));
+    console.log(chalk.bold.green('╚══════════════════════════════════════════╝\n'));
     
-    console.log(chalk.cyan('🔧 Configuration:'));
-    console.log(chalk.gray('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
-    console.log(chalk.blue('Your Wallet:  '), chalk.white(this.yourWalletAddress));
-    console.log(chalk.blue('Lead Trader:  '), chalk.white(this.leadTraderAddress));
-    console.log(chalk.blue('Per Trade:    '), chalk.white(`$${this.amountPerTrade}`));
-    console.log(chalk.gray('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'));
+    console.log(chalk.cyan('📋 Configuration:'));
+    console.log(chalk.gray('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
+    console.log(chalk.blue('Your Wallet:  ') + chalk.white(this.yourWallet));
+    console.log(chalk.blue('Lead Trader:  ') + chalk.white(this.leadTrader));
+    console.log(chalk.blue('Per Trade:    ') + chalk.white(`$${this.amountPerTrade}`));
+    console.log(chalk.blue('RPC HTTP:     ') + chalk.white(this.polygonHttp.includes('demo') ? 'Demo (Free)' : 'Custom'));
+    console.log(chalk.blue('RPC WSS:      ') + chalk.white(this.polygonWss.includes('demo') ? 'Demo (Free)' : 'Custom'));
+    console.log(chalk.gray('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'));
     
-    console.log(chalk.yellow('💰 Fetching your balance...'));
-    await this.getYourBalance();
-    console.log(chalk.green('✅ Balance:'), chalk.white(`$${this.balance.toFixed(2)}\n`));
+    console.log(chalk.yellow('💰 Fetching balance...'));
+    await this.getBalance();
+    console.log(chalk.green(`✅ Balance: $${this.balance.toFixed(2)}\n`));
     
-    console.log(chalk.green('✅ Starting monitoring...\n'));
+    console.log(chalk.green('✅ Bot started - monitoring every 3 seconds'));
+    console.log(chalk.yellow('⏳ Waiting for new trades...\n'));
+    console.log(chalk.gray('Press Ctrl+C to stop\n'));
     
-    setInterval(() => this.pollLeadTraderActivity(), 3000);
-    setInterval(() => this.getYourBalance(), 30000);
-    
-    console.log(chalk.green('✅ Bot is RUNNING!'));
-    console.log(chalk.yellow('Waiting for new trades...\n'));
+    setInterval(() => this.pollTrades(), 3000);
+    setInterval(() => this.getBalance(), 30000);
   }
 }
 
 process.on('SIGINT', () => {
-  console.log(chalk.yellow('\n\n⚠️  Shutting down...'));
+  console.log(chalk.yellow('\n\n👋 Bot stopped'));
   process.exit(0);
 });
 
 const bot = new PolymarketCopyBot();
-bot.start().catch(error => {
-  console.error(chalk.red('💥 Error:'), error);
+bot.start().catch(err => {
+  console.error(chalk.red('Error:'), err.message);
   process.exit(1);
 });
 EOFBOT
 
-echo -e "${GREEN}✅ Bot code installed${NC}"
-sleep 1
+show_success "Bot engine installed"
+echo ""
 
 # Create start script
-cat > start.sh << 'EOFSTART'
+show_step "6/7" "Creating launcher..."
+cat > start.sh << 'EOF'
 #!/bin/bash
 clear
-echo "Starting Polymarket Copy Bot..."
+echo "🚀 Starting Polymarket Copy Bot..."
+echo ""
 node bot.js
-EOFSTART
-
+EOF
 chmod +x start.sh
+show_success "Launcher created"
+echo ""
 
 # Create README
-cat > README.md << 'EOFREADME'
+cat > README.md << 'EOF'
 # Polymarket Copy Trading Bot
 
 ## Quick Start
-
 ```bash
 ./start.sh
 ```
 
 ## Configuration
+Edit `.env` file to change settings
 
-Edit `.env` file to update settings.
+## What You Need
+- USDC in your Polymarket wallet
+- Valid Polymarket API credentials
+- Polygon RPC endpoints (free from Alchemy/Infura)
+
+## RPC Endpoints
+Free RPC endpoints:
+- **Alchemy**: https://www.alchemy.com (Recommended)
+- **Infura**: https://infura.io
+- **Chainstack**: https://chainstack.com
+
+## Changing Settings
+```bash
+nano .env
+```
 
 ## Support
+Check `.env` configuration if issues occur
+EOF
 
-For help, check the configuration in `.env` file.
-EOFREADME
-
-# Final Summary
+# Final summary
+show_step "7/7" "Finalizing..."
+sleep 1
 clear
-echo -e "${GREEN}"
-echo "╔════════════════════════════════════════════════╗"
-echo "║          ✅ INSTALLATION COMPLETE! ✅          ║"
-echo "╚════════════════════════════════════════════════╝"
+
+echo -e "${BOLD}${GREEN}"
+cat << "EOF"
+╔══════════════════════════════════════════════════════════╗
+║                                                          ║
+║            ✅ INSTALLATION SUCCESSFUL! ✅                ║
+║                                                          ║
+╚══════════════════════════════════════════════════════════╝
+EOF
 echo -e "${NC}"
 echo ""
-echo -e "${YELLOW}📋 Configuration Summary:${NC}"
-echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${CYAN}Your Wallet:${NC}    ${GREEN}$YOUR_WALLET${NC}"
-echo -e "${CYAN}Lead Trader:${NC}    ${GREEN}$LEAD_TRADER${NC}"
-echo -e "${CYAN}Per Trade:${NC}      ${GREEN}\$$AMOUNT_PER_TRADE${NC}"
-echo -e "${CYAN}API Key:${NC}        ${GREEN}${API_KEY:0:30}...${NC}"
-echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+
+echo -e "${BOLD}${CYAN}📋 Your Configuration Summary:${NC}"
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${CYAN}Your Wallet:    ${GREEN}${YOUR_WALLET:0:10}...${YOUR_WALLET: -8}${NC}"
+echo -e "${CYAN}Lead Trader:    ${GREEN}${LEAD_TRADER:0:10}...${LEAD_TRADER: -8}${NC}"
+echo -e "${CYAN}Per Trade:      ${BOLD}${GREEN}\$$AMOUNT USD${NC}"
+echo -e "${CYAN}API Status:     ${GREEN}Configured ✓${NC}"
+if [[ "$POLYGON_HTTP" == *"demo"* ]]; then
+    echo -e "${CYAN}RPC Endpoint:   ${YELLOW}Demo (Free) ⚠️${NC}"
+else
+    echo -e "${CYAN}RPC Endpoint:   ${GREEN}Custom ✓${NC}"
+fi
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
-echo -e "${CYAN}🚀 Bot chalane ke liye:${NC}"
-echo ""
+
+echo -e "${BOLD}${CYAN}🚀 Start Bot:${NC}"
 echo -e "   ${GREEN}./start.sh${NC}"
 echo ""
-echo -e "${YELLOW}⚠️  Important Checks:${NC}"
-echo "   ✓ Aapke wallet mein USDC hai?"
-echo "   ✓ API credentials sahi hain?"
-echo "   ✓ Internet connection stable hai?"
-echo ""
-echo -e "${GREEN}Sab ready hai! Bot start karne ke liye upar wala command chalayein.${NC}"
+
+echo -e "${BOLD}${CYAN}📝 Edit Settings:${NC}"
+echo -e "   ${BLUE}nano .env${NC}"
 echo ""
 
-# Auto-start option
-echo -e -n "${CYAN}Abhi bot start karen? (y/n)${NC} [${GREEN}y${NC}]: "
-read START_NOW
+echo -e "${BOLD}${YELLOW}⚠️  Important Checklist:${NC}"
+echo "   ✓ Wallet mein kam se kam \$$AMOUNT USDC hona chahiye"
+echo "   ✓ Bot har 3 seconds mein check karega"
+echo "   ✓ Ctrl+C se stop kar sakte hain"
+if [[ "$POLYGON_HTTP" == *"demo"* ]]; then
+    echo -e "   ${YELLOW}⚠️  Better performance ke liye Alchemy RPC use karo${NC}"
+fi
+echo ""
 
-if [ -z "$START_NOW" ] || [ "$START_NOW" = "y" ] || [ "$START_NOW" = "Y" ]; then
+# Auto-start prompt
+echo -e -n "${BOLD}${CYAN}Abhi start karen? (y/n) [y]: ${NC}"
+read -t 30 START_NOW || START_NOW="y"
+START_NOW=${START_NOW:-y}
+
+if [[ "$START_NOW" == "y" ]] || [[ "$START_NOW" == "Y" ]]; then
     echo ""
-    echo -e "${GREEN}Starting bot in 3 seconds...${NC}"
-    sleep 1
-    echo -e "${YELLOW}3...${NC}"
-    sleep 1
-    echo -e "${YELLOW}2...${NC}"
-    sleep 1
-    echo -e "${YELLOW}1...${NC}"
-    sleep 1
+    echo -e "${GREEN}Starting in 3 seconds...${NC}"
+    for i in 3 2 1; do
+        echo -e "${YELLOW}$i...${NC}"
+        sleep 1
+    done
     clear
-    ./start.sh
+    exec ./start.sh
+else
+    echo ""
+    echo -e "${GREEN}Setup complete! Run ${BOLD}./start.sh${NC}${GREEN} when ready.${NC}"
+    echo ""
 fi
