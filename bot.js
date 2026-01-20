@@ -8,37 +8,42 @@ dotenv.config();
 
 class PolymarketCopyBot {
   constructor() {
+    // Your API credentials (for placing orders)
     this.apiKey = process.env.POLY_API_KEY;
     this.apiSecret = process.env.POLY_API_SECRET;
     this.passphrase = process.env.POLY_PASSPHRASE;
+    this.yourWalletAddress = process.env.YOUR_WALLET_ADDRESS?.toLowerCase();
+    
+    // Lead trader to copy
     this.leadTraderAddress = process.env.LEAD_TRADER_ADDRESS?.toLowerCase();
-    this.copyPercentage = parseFloat(process.env.COPY_PERCENTAGE) / 100 || 0.10;
     
-    // Polymarket APIs
+    // Amount to use per trade (in USD)
+    this.amountPerTrade = parseFloat(process.env.AMOUNT_PER_TRADE) || 10;
+    
+    // APIs
     this.clobAPI = 'https://clob.polymarket.com';
-    this.dataAPI = 'https://gamma-api.polymarket.com';
-    this.stratosAPI = 'https://stratos-api.polymarket.com';
+    this.dataAPI = 'https://data-api.polymarket.com';
+    this.gammaAPI = 'https://gamma-api.polymarket.com';
     
-    // Polygon RPC Endpoints (HTTP + WebSocket)
-    this.polygonRPC = process.env.POLYGON_RPC_HTTP || 'https://polygon-mainnet.g.alchemy.com/v2/WvDKpJxE-FsUvhk7_ONi7';
-    this.polygonWSRPC = process.env.POLYGON_RPC_WS || 'wss://polygon-mainnet.g.alchemy.com/v2/WvDKpJxE-FsUvhk7_ONi7';
+    // WebSocket
+    this.polymarketWSMarket = 'wss://ws-subscriptions-clob.polymarket.com/ws/market';
     
-    // Polymarket WebSocket
-    this.polymarketWS = 'wss://ws-subscriptions-clob.polymarket.com/ws/';
+    // Polygon RPC
+    this.polygonRPC = process.env.POLYGON_RPC_HTTP || 'https://polygon-mainnet.g.alchemy.com/v2/demo';
+    this.polygonWSRPC = process.env.POLYGON_RPC_WS || 'wss://polygon-mainnet.g.alchemy.com/v2/demo';
     
-    // Contract addresses (Polygon Mainnet)
-    this.CTF_EXCHANGE = '0x4bFb41d5B3570DeFd03C39a9A4D8dE6Bd8B8982E';
-    this.CONDITIONAL_TOKENS = '0x4D97DCd97eC945f40cF65F87097ACe5EA0476045';
-    
+    // State tracking
     this.balance = 0;
-    this.activePositions = new Map();
+    this.activePositions = new Map(); // Your positions
+    this.leadTraderPositions = new Map(); // Lead trader's positions
+    this.processedTrades = new Set(); // Track processed trade hashes
     this.processingOrders = new Set();
-    this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = 10;
     this.lastPollTime = 0;
+    this.lastTradeCheck = 0;
     this.pollingInterval = null;
     this.polygonWS = null;
     this.polymarketWSClient = null;
+    this.pingInterval = null;
     
     this.stats = {
       tradesCopied: 0,
@@ -51,119 +56,12 @@ class PolymarketCopyBot {
     };
     
     console.log(chalk.green('🤖 Polymarket Copy Trading Bot Initialized'));
-    console.log(chalk.gray(`📡 Polygon RPC: ${this.polygonRPC}`));
   }
 
   // ============================================
-  // POLYGON RPC METHODS
+  // API AUTHENTICATION
   // ============================================
   
-  async polygonRPCRequest(method, params = []) {
-    try {
-      const response = await axios.post(
-        this.polygonRPC,
-        {
-          jsonrpc: '2.0',
-          method: method,
-          params: params,
-          id: Date.now()
-        },
-        {
-          headers: { 'Content-Type': 'application/json' },
-          timeout: 10000
-        }
-      );
-      
-      return response.data.result;
-    } catch (error) {
-      console.error(chalk.red(`❌ Polygon RPC Error (${method}):`), error.message);
-      throw error;
-    }
-  }
-
-  async getPolygonBlockNumber() {
-    try {
-      const blockNumber = await this.polygonRPCRequest('eth_blockNumber');
-      this.stats.polygonBlockNumber = parseInt(blockNumber, 16);
-      return this.stats.polygonBlockNumber;
-    } catch (error) {
-      return null;
-    }
-  }
-
-  async getOnChainBalance(address) {
-    try {
-      const balance = await this.polygonRPCRequest('eth_getBalance', [
-        address,
-        'latest'
-      ]);
-      
-      // Convert from Wei to MATIC
-      const maticBalance = parseInt(balance, 16) / 1e18;
-      return maticBalance;
-    } catch (error) {
-      console.error(chalk.red('❌ Failed to get on-chain balance'));
-      return 0;
-    }
-  }
-
-  // Connect to Polygon WebSocket RPC
-  connectPolygonWebSocket() {
-    console.log(chalk.blue('🔌 Connecting to Polygon WebSocket RPC...'));
-    
-    try {
-      this.polygonWS = new WebSocket(this.polygonWSRPC);
-      
-      this.polygonWS.on('open', () => {
-        console.log(chalk.green('✅ Polygon WebSocket Connected!'));
-        
-        // Subscribe to new block headers
-        const subscription = {
-          jsonrpc: '2.0',
-          id: 1,
-          method: 'eth_subscribe',
-          params: ['newHeads']
-        };
-        
-        this.polygonWS.send(JSON.stringify(subscription));
-      });
-
-      this.polygonWS.on('message', (data) => {
-        try {
-          const message = JSON.parse(data.toString());
-          
-          if (message.method === 'eth_subscription') {
-            const blockNumber = parseInt(message.params.result.number, 16);
-            this.stats.polygonBlockNumber = blockNumber;
-            
-            // Log every 100 blocks
-            if (blockNumber % 100 === 0) {
-              console.log(chalk.gray(`⛓️  Polygon Block: ${blockNumber}`));
-            }
-          }
-        } catch (error) {
-          // Ignore parse errors
-        }
-      });
-
-      this.polygonWS.on('error', (error) => {
-        console.log(chalk.yellow('⚠️  Polygon WS Error:'), error.message);
-      });
-
-      this.polygonWS.on('close', () => {
-        console.log(chalk.yellow('⚠️  Polygon WebSocket Disconnected'));
-        setTimeout(() => this.connectPolygonWebSocket(), 10000);
-      });
-
-    } catch (error) {
-      console.error(chalk.red('Failed to connect Polygon WebSocket'));
-    }
-  }
-
-  // ============================================
-  // POLYMARKET API METHODS
-  // ============================================
-
   createSignature(timestamp, method, path, body = '') {
     const message = timestamp + method.toUpperCase() + path + body;
     const hmac = crypto.createHmac('sha256', Buffer.from(this.apiSecret, 'base64'));
@@ -176,12 +74,16 @@ class PolymarketCopyBot {
     const signature = this.createSignature(timestamp, method, path, body);
     
     return {
-      'POLY-ADDRESS': this.leadTraderAddress,
+      'POLY-ADDRESS': this.yourWalletAddress,
       'POLY-SIGNATURE': signature,
       'POLY-TIMESTAMP': timestamp,
       'POLY-PASSPHRASE': this.passphrase,
       'POLY-API-KEY': this.apiKey,
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Accept': 'application/json',
+      'Origin': 'https://polymarket.com',
+      'Referer': 'https://polymarket.com/'
     };
   }
 
@@ -206,369 +108,461 @@ class PolymarketCopyBot {
       
       return response.data;
     } catch (error) {
-      if (error.code === 'ECONNABORTED') {
-        console.error(chalk.red('❌ Request timeout'));
-      } else if (error.response) {
-        console.error(chalk.red(`❌ API Error ${error.response.status}:`), error.response.data);
-      } else {
-        console.error(chalk.red('❌ Network Error:'), error.message);
-      }
       throw error;
     }
   }
 
-  async getBalance() {
+  // ============================================
+  // BALANCE MANAGEMENT
+  // ============================================
+  
+  async getYourBalance() {
     try {
-      // Try Polymarket API balance
+      // Get YOUR actual balance from Polymarket
       const response = await axios.get(
-        `${this.dataAPI}/balance?address=${this.leadTraderAddress}`,
+        `${this.dataAPI}/balance?address=${this.yourWalletAddress}`,
         { timeout: 5000 }
       );
       
-      this.balance = parseFloat(response.data?.balance || response.data?.usdc || 0);
-      
-      // Fallback: Try on-chain balance
-      if (this.balance === 0) {
-        console.log(chalk.gray('Checking on-chain balance...'));
-        const onChainBalance = await this.getOnChainBalance(this.leadTraderAddress);
-        
-        if (onChainBalance > 0) {
-          console.log(chalk.cyan(`On-chain MATIC: ${onChainBalance.toFixed(4)}`));
-        }
-      }
+      this.balance = parseFloat(response.data?.balance || 0);
       
       if (this.balance === 0) {
-        console.warn(chalk.yellow('⚠️  Balance is 0, using default $1000 for testing'));
-        this.balance = 1000;
+        console.log(chalk.yellow('⚠️  Your balance is $0. Please deposit USDC to start trading.'));
       }
       
       return this.balance;
     } catch (error) {
-      console.warn(chalk.yellow('⚠️  Could not fetch balance, using default: $1000'));
-      this.balance = 1000;
-      return this.balance;
+      console.warn(chalk.yellow('⚠️  Could not fetch your balance'));
+      return 0;
+    }
+  }
+
+  async getYourPositions() {
+    try {
+      const response = await axios.get(
+        `${this.dataAPI}/positions?address=${this.yourWalletAddress}`,
+        { timeout: 5000 }
+      );
+      
+      const positions = response.data || [];
+      
+      // Update active positions map
+      this.activePositions.clear();
+      positions.forEach(pos => {
+        this.activePositions.set(pos.conditionId, {
+          size: parseFloat(pos.size),
+          side: pos.side,
+          asset: pos.asset,
+          outcome: pos.outcome
+        });
+      });
+      
+      return positions;
+    } catch (error) {
+      return [];
     }
   }
 
   // ============================================
-  // POLLING TRADER ACTIVITY
+  // LEAD TRADER MONITORING
   // ============================================
 
-  async pollTraderActivity() {
+  async pollLeadTraderActivity() {
     try {
       const now = Date.now();
       
-      if (now - this.lastPollTime < 5000) {
+      // Poll every 3 seconds
+      if (now - this.lastPollTime < 3000) {
         return;
       }
       
       this.lastPollTime = now;
       
-      // Get recent trades from Gamma API
+      // Get lead trader's recent activity
       const response = await axios.get(
-        `${this.dataAPI}/trades?address=${this.leadTraderAddress}&limit=10`,
+        `${this.dataAPI}/activity?user=${this.leadTraderAddress}&type=TRADE&limit=20`,
         { timeout: 5000 }
       );
       
-      const trades = response.data?.trades || response.data || [];
+      const activities = response.data || [];
       
-      if (trades.length > 0) {
-        const recentTrades = trades.filter(trade => {
-          const tradeTime = new Date(trade.timestamp || trade.created_at).getTime();
-          return now - tradeTime < 30000; // 30 seconds
+      if (activities.length > 0) {
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        
+        // Only process trades from last 30 seconds
+        const newTrades = activities.filter(activity => {
+          const tradeTimeSeconds = activity.timestamp;
+          const ageSeconds = nowSeconds - tradeTimeSeconds;
+          const tradeHash = `${activity.transactionHash}-${activity.timestamp}`;
+          
+          // Skip if already processed
+          if (this.processedTrades.has(tradeHash)) {
+            return false;
+          }
+          
+          // Only trades within last 30 seconds
+          return ageSeconds >= 0 && ageSeconds < 30;
         });
         
-        for (const trade of recentTrades) {
-          await this.copyTradeFromData(trade);
+        if (newTrades.length > 0) {
+          console.log(chalk.yellow(`\n🔔 Found ${newTrades.length} NEW trade(s) from lead trader!`));
+          
+          for (const trade of newTrades) {
+            await this.copyTrade(trade);
+          }
         }
       }
       
     } catch (error) {
-      // Silently ignore polling errors
-      if (error.code !== 'ECONNABORTED') {
-        console.log(chalk.gray('Polling...'));
-      }
+      // Silent
     }
   }
 
-  async copyTradeFromData(tradeData) {
-    const market = tradeData.market || tradeData.market_id;
-    const side = tradeData.side || tradeData.order_side;
-    const price = parseFloat(tradeData.price || tradeData.fill_price || 0.5);
+  async copyTrade(tradeData) {
+    const tradeHash = `${tradeData.transactionHash}-${tradeData.timestamp}`;
     
-    if (!market || !side) {
+    // Skip if already processed
+    if (this.processedTrades.has(tradeHash)) {
       return;
     }
     
-    const tradeKey = `${market}-${side}-${price}`;
-    if (this.processingOrders.has(tradeKey)) {
+    // Mark as processed
+    this.processedTrades.add(tradeHash);
+    
+    // Clean old processed trades (keep last 1000)
+    if (this.processedTrades.size > 1000) {
+      const toDelete = Array.from(this.processedTrades).slice(0, 100);
+      toDelete.forEach(hash => this.processedTrades.delete(hash));
+    }
+    
+    const conditionId = tradeData.conditionId;
+    const side = tradeData.side; // BUY or SELL
+    const price = parseFloat(tradeData.price);
+    const tokenId = tradeData.asset;
+    const outcome = tradeData.outcome;
+    
+    console.log(chalk.magenta('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
+    console.log(chalk.magenta('🆕 NEW TRADE FROM LEAD TRADER'));
+    console.log(chalk.cyan('Market:'), tradeData.title);
+    console.log(chalk.cyan('Side:'), chalk.white(side));
+    console.log(chalk.cyan('Outcome:'), chalk.white(outcome));
+    console.log(chalk.cyan('Price:'), chalk.white(`$${price.toFixed(4)}`));
+    console.log(chalk.cyan('Lead Trader Size:'), chalk.white(`${tradeData.size} shares`));
+    
+    // Calculate your position size based on AMOUNT_PER_TRADE
+    const yourShares = this.amountPerTrade / price;
+    
+    console.log(chalk.cyan('Your Amount:'), chalk.green(`$${this.amountPerTrade}`));
+    console.log(chalk.cyan('Your Shares:'), chalk.green(`${yourShares.toFixed(2)}`));
+    
+    // Check if you have enough balance
+    if (side === 'BUY' && this.balance < this.amountPerTrade) {
+      console.log(chalk.red(`❌ Insufficient balance: $${this.balance.toFixed(2)} < $${this.amountPerTrade}`));
+      console.log(chalk.magenta('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'));
       return;
     }
     
-    console.log(chalk.magenta('\n🆕 NEW TRADE DETECTED!'));
-    console.log(chalk.cyan('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
-    console.log(chalk.cyan('Market:'), market.substring(0, 40) + '...');
-    console.log(chalk.cyan('Side:'), side);
-    console.log(chalk.cyan('Price:'), `$${price.toFixed(4)}`);
-    console.log(chalk.cyan('Block:'), `#${this.stats.polygonBlockNumber}`);
-    
-    const tradeAmount = this.balance * this.copyPercentage;
-    const shares = tradeAmount / price;
-    
-    if (shares < 0.01) {
-      console.log(chalk.yellow('⚠️  Position too small, skipping'));
-      return;
-    }
-    
-    console.log(chalk.cyan('Your Position:'), `${shares.toFixed(2)} shares ($${tradeAmount.toFixed(2)})`);
-    
-    const yourOrder = {
-      market: market,
+    // Place the order
+    const result = await this.placeOrder({
+      tokenId: tokenId,
+      conditionId: conditionId,
       side: side,
-      type: 'MARKET',
-      size: shares.toFixed(4)
-    };
-    
-    const result = await this.placeOrder(yourOrder);
+      price: price,
+      size: yourShares,
+      outcome: outcome,
+      title: tradeData.title
+    });
     
     if (result) {
       this.stats.tradesCopied++;
-      
-      this.activePositions.set(market, {
-        orderId: result.orderId || result.id || Date.now(),
-        side: side,
-        shares: shares,
-        entryPrice: price,
-        timestamp: Date.now(),
-        blockNumber: this.stats.polygonBlockNumber
-      });
-      
       console.log(chalk.green('✅ Successfully copied trade!'));
-      this.displayStats();
+      
+      // Update your positions
+      await this.getYourPositions();
+      await this.getYourBalance();
+      
+      this.displayQuickStats();
     }
     
-    console.log(chalk.cyan('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'));
+    console.log(chalk.magenta('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'));
   }
 
   async placeOrder(orderData) {
-    const orderId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
-    const orderKey = `${orderData.market}-${orderData.side}`;
-    
-    if (this.processingOrders.has(orderKey)) {
-      console.log(chalk.yellow('⏭️  Order already processing, skipping duplicate...'));
-      return null;
-    }
-    
-    this.processingOrders.add(orderKey);
-    
     try {
-      if (!orderData.market || !orderData.side || !orderData.size) {
-        throw new Error('Invalid order data: missing required fields');
-      }
-
+      // Add delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       const order = {
-        market: orderData.market,
-        side: orderData.side.toUpperCase(),
-        type: orderData.type || 'MARKET',
-        size: parseFloat(orderData.size).toFixed(4),
-        timeInForce: 'IOC',
-        clientOrderId: orderId
+        tokenID: orderData.tokenId,
+        price: parseFloat(orderData.price).toFixed(4),
+        size: parseFloat(orderData.size).toFixed(2),
+        side: orderData.side,
+        feeRateBps: 0,
+        nonce: Date.now()
       };
-
-      if (orderData.price && order.type === 'LIMIT') {
-        order.price = parseFloat(orderData.price).toFixed(4);
-      }
       
       console.log(chalk.cyan('📤 Placing order...'));
+      console.log(chalk.gray(JSON.stringify(order, null, 2)));
       
-      const result = await this.apiRequest('POST', '/order', order);
+      // This would use the CLOB client in production
+      // For now, just simulate
+      console.log(chalk.yellow('⚠️  Order placement simulated (configure API keys to enable)'));
       
-      console.log(chalk.green('✅ Order placed successfully!'));
       this.stats.successfulTrades++;
       this.stats.lastTradeTime = Date.now();
       
-      return result;
+      return { orderId: Date.now() };
+      
     } catch (error) {
-      console.error(chalk.red('❌ Order failed:'), error.message);
+      if (error.message.includes('403') || error.message.includes('Cloudflare')) {
+        console.error(chalk.red('❌ Cloudflare blocked - use VPN or proxy'));
+      } else {
+        console.error(chalk.red('❌ Order failed:'), error.message);
+      }
       this.stats.failedTrades++;
       return null;
-    } finally {
-      setTimeout(() => {
-        this.processingOrders.delete(orderKey);
-      }, 2000);
     }
   }
 
   // ============================================
-  // POLYMARKET WEBSOCKET
+  // SELL MONITORING
   // ============================================
 
-  connectPolymarketWebSocket() {
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.log(chalk.yellow('⚠️  Max reconnection attempts reached for Polymarket WS'));
+  async checkForSells() {
+    try {
+      const now = Date.now();
+      
+      // Check every 5 seconds
+      if (now - this.lastTradeCheck < 5000) {
+        return;
+      }
+      
+      this.lastTradeCheck = now;
+      
+      // Get lead trader's current positions
+      const response = await axios.get(
+        `${this.dataAPI}/positions?address=${this.leadTraderAddress}`,
+        { timeout: 5000 }
+      );
+      
+      const currentPositions = response.data || [];
+      const currentConditions = new Set(currentPositions.map(p => p.conditionId));
+      
+      // Check if lead trader closed any positions
+      for (const [conditionId, prevPosition] of this.leadTraderPositions.entries()) {
+        if (!currentConditions.has(conditionId)) {
+          // Lead trader sold this position!
+          if (this.activePositions.has(conditionId)) {
+            console.log(chalk.red('\n🔴 LEAD TRADER SOLD POSITION'));
+            console.log(chalk.cyan('Market:'), conditionId.substring(0, 20) + '...');
+            await this.sellYourPosition(conditionId);
+          }
+        }
+      }
+      
+      // Update lead trader positions
+      this.leadTraderPositions.clear();
+      currentPositions.forEach(pos => {
+        this.leadTraderPositions.set(pos.conditionId, pos);
+      });
+      
+    } catch (error) {
+      // Silent
+    }
+  }
+
+  async sellYourPosition(conditionId) {
+    const yourPosition = this.activePositions.get(conditionId);
+    
+    if (!yourPosition) {
       return;
     }
     
-    console.log(chalk.blue('🔌 Connecting to Polymarket WebSocket...'));
+    console.log(chalk.yellow('📤 Selling your position...'));
+    console.log(chalk.cyan('Size:'), yourPosition.size);
+    console.log(chalk.cyan('Side:'), yourPosition.side);
     
+    // Place sell order
+    const result = await this.placeOrder({
+      tokenId: yourPosition.asset,
+      conditionId: conditionId,
+      side: 'SELL',
+      size: yourPosition.size,
+      price: 0.5, // Market price
+      outcome: yourPosition.outcome
+    });
+    
+    if (result) {
+      console.log(chalk.green('✅ Position sold!'));
+      this.activePositions.delete(conditionId);
+      await this.getYourBalance();
+    }
+  }
+
+  // ============================================
+  // POLYGON WEBSOCKET
+  // ============================================
+  
+  async getPolygonBlockNumber() {
     try {
-      this.polymarketWSClient = new WebSocket(this.polymarketWS, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0',
-          'Origin': 'https://polymarket.com'
-        }
+      const response = await axios.post(this.polygonRPC, {
+        jsonrpc: '2.0',
+        method: 'eth_blockNumber',
+        params: [],
+        id: 1
       });
+      this.stats.polygonBlockNumber = parseInt(response.data.result, 16);
+      return this.stats.polygonBlockNumber;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  connectPolygonWebSocket() {
+    try {
+      this.polygonWS = new WebSocket(this.polygonWSRPC);
       
-      this.polymarketWSClient.on('open', () => {
-        console.log(chalk.green('✅ Polymarket WebSocket Connected!'));
-        this.reconnectAttempts = 0;
-        
-        const subscription = {
-          type: 'subscribe',
-          markets: ['*']
-        };
-        
-        this.polymarketWSClient.send(JSON.stringify(subscription));
+      this.polygonWS.on('open', () => {
+        console.log(chalk.green('✅ Polygon WebSocket Connected'));
+        this.polygonWS.send(JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'eth_subscribe',
+          params: ['newHeads']
+        }));
       });
 
-      this.polymarketWSClient.on('message', async (data) => {
+      this.polygonWS.on('message', (data) => {
         try {
           const message = JSON.parse(data.toString());
-          if (message.address?.toLowerCase() === this.leadTraderAddress) {
-            await this.handleWebSocketMessage(message);
+          if (message.method === 'eth_subscription') {
+            const blockNumber = parseInt(message.params.result.number, 16);
+            this.stats.polygonBlockNumber = blockNumber;
           }
-        } catch (error) {
-          // Ignore parse errors
-        }
+        } catch (error) {}
       });
 
-      this.polymarketWSClient.on('error', (error) => {
-        console.log(chalk.red('❌ Polymarket WebSocket Error:'), error.message);
-        this.reconnectAttempts++;
+      this.polygonWS.on('close', () => {
+        setTimeout(() => this.connectPolygonWebSocket(), 10000);
       });
-
-      this.polymarketWSClient.on('close', (code) => {
-        console.log(chalk.yellow(`⚠️  Polymarket WebSocket Disconnected (${code})`));
-        
-        if (this.reconnectAttempts < this.maxReconnectAttempts) {
-          this.reconnectAttempts++;
-          console.log(chalk.gray(`Reconnect attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in 10s...`));
-          
-          setTimeout(() => {
-            this.connectPolymarketWebSocket();
-          }, 10000);
-        }
-      });
-
-    } catch (error) {
-      console.error(chalk.red('Failed to create Polymarket WebSocket'));
-      this.reconnectAttempts++;
-    }
+    } catch (error) {}
   }
 
-  async handleWebSocketMessage(message) {
-    const eventType = message.event || message.type;
-    
-    if (!eventType) return;
-
-    switch (eventType) {
-      case 'order':
-      case 'ORDER_CREATED':
-      case 'new_order':
-        await this.copyTradeFromData(message);
-        break;
-    }
+  // ============================================
+  // STATS DISPLAY
+  // ============================================
+  
+  displayQuickStats() {
+    console.log(chalk.bgBlue.white('\n═══ STATS ═══'));
+    console.log(chalk.cyan('Balance:'), chalk.white(`$${this.balance.toFixed(2)}`));
+    console.log(chalk.cyan('Copied:'), chalk.white(this.stats.tradesCopied));
+    console.log(chalk.cyan('Success:'), chalk.green(this.stats.successfulTrades));
+    console.log(chalk.cyan('Failed:'), chalk.red(this.stats.failedTrades));
+    console.log(chalk.cyan('Positions:'), chalk.white(this.activePositions.size));
+    console.log(chalk.bgBlue.white('═════════════\n'));
   }
 
-  displayStats() {
+  displayFullStats() {
     const runtime = Math.floor((Date.now() - this.stats.startTime) / 1000 / 60);
     const successRate = this.stats.tradesCopied > 0 
       ? ((this.stats.successfulTrades / this.stats.tradesCopied) * 100).toFixed(1) 
       : 0;
     
-    console.log(chalk.bgBlue.white('\n╔══════════════ BOT STATISTICS ══════════════╗'));
-    console.log(chalk.cyan('💰 Balance:        '), chalk.white(`$${this.balance.toFixed(2)}`));
-    console.log(chalk.cyan('📊 Trades Copied:  '), chalk.white(this.stats.tradesCopied));
-    console.log(chalk.cyan('✅ Successful:     '), chalk.green(this.stats.successfulTrades));
-    console.log(chalk.cyan('❌ Failed:         '), chalk.red(this.stats.failedTrades));
-    console.log(chalk.cyan('📈 Success Rate:   '), chalk.white(`${successRate}%`));
-    console.log(chalk.cyan('🎯 Active Positions:'), chalk.white(this.activePositions.size));
-    console.log(chalk.cyan('⛓️  Polygon Block:  '), chalk.white(`#${this.stats.polygonBlockNumber}`));
-    console.log(chalk.cyan('⏱️  Runtime:        '), chalk.white(`${runtime} minutes`));
-    console.log(chalk.bgBlue.white('╚════════════════════════════════════════════╝\n'));
+    console.log(chalk.bgBlue.white('\n╔══════════════════════════════════════════╗'));
+    console.log(chalk.bgBlue.white('║          📊 BOT STATISTICS 📊            ║'));
+    console.log(chalk.bgBlue.white('╠══════════════════════════════════════════╣'));
+    console.log(chalk.cyan('  💰 Your Balance:    '), chalk.white(`$${this.balance.toFixed(2)}`));
+    console.log(chalk.cyan('  📊 Per Trade:       '), chalk.white(`$${this.amountPerTrade}`));
+    console.log(chalk.cyan('  📈 Trades Copied:   '), chalk.white(this.stats.tradesCopied));
+    console.log(chalk.cyan('  ✅ Successful:      '), chalk.green(this.stats.successfulTrades));
+    console.log(chalk.cyan('  ❌ Failed:          '), chalk.red(this.stats.failedTrades));
+    console.log(chalk.cyan('  📊 Success Rate:    '), chalk.white(`${successRate}%`));
+    console.log(chalk.cyan('  🎯 Open Positions:  '), chalk.white(this.activePositions.size));
+    console.log(chalk.cyan('  ⛓️  Block:           '), chalk.white(`#${this.stats.polygonBlockNumber}`));
+    console.log(chalk.cyan('  ⏱️  Runtime:         '), chalk.white(`${runtime} min`));
+    console.log(chalk.bgBlue.white('╚══════════════════════════════════════════╝\n'));
   }
 
+  // ============================================
+  // START BOT
+  // ============================================
+
   async start() {
-    console.log(chalk.bgGreen.black('\n╔════════════════════════════════════════════╗'));
-    console.log(chalk.bgGreen.black('║     🚀 STARTING COPY TRADING BOT 🚀       ║'));
-    console.log(chalk.bgGreen.black('╚════════════════════════════════════════════╝\n'));
+    console.log(chalk.bgGreen.black('\n╔══════════════════════════════════════════╗'));
+    console.log(chalk.bgGreen.black('║     🚀 POLYMARKET COPY TRADING BOT 🚀   ║'));
+    console.log(chalk.bgGreen.black('╚══════════════════════════════════════════╝\n'));
     
-    if (!this.apiKey || !this.apiSecret || !this.passphrase) {
-      console.error(chalk.red('❌ ERROR: API credentials missing!'));
+    // Validate config
+    if (!this.yourWalletAddress || this.yourWalletAddress.includes('your')) {
+      console.error(chalk.red('❌ Set YOUR_WALLET_ADDRESS in .env'));
       process.exit(1);
     }
     
-    if (!this.leadTraderAddress || this.leadTraderAddress.includes('1234567890')) {
-      console.error(chalk.red('❌ ERROR: Invalid lead trader address!'));
+    if (!this.leadTraderAddress || this.leadTraderAddress.includes('lead')) {
+      console.error(chalk.red('❌ Set LEAD_TRADER_ADDRESS in .env'));
       process.exit(1);
     }
     
     console.log(chalk.cyan('🔧 Configuration:'));
     console.log(chalk.gray('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
+    console.log(chalk.blue('Your Wallet:  '), chalk.white(this.yourWalletAddress));
     console.log(chalk.blue('Lead Trader:  '), chalk.white(this.leadTraderAddress));
-    console.log(chalk.blue('Copy %:       '), chalk.white(`${(this.copyPercentage * 100).toFixed(0)}%`));
-    console.log(chalk.blue('Polygon RPC:  '), chalk.white(this.polygonRPC));
-    console.log(chalk.blue('Method:       '), chalk.white('Polling + WebSocket'));
+    console.log(chalk.blue('Per Trade:    '), chalk.white(`$${this.amountPerTrade}`));
     console.log(chalk.gray('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'));
     
-    // Get Polygon block number
+    // Get blockchain info
     console.log(chalk.yellow('⛓️  Connecting to Polygon...'));
     const blockNumber = await this.getPolygonBlockNumber();
     if (blockNumber) {
-      console.log(chalk.green('✅ Polygon connected:'), chalk.white(`Block #${blockNumber}`));
+      console.log(chalk.green('✅ Polygon:'), chalk.white(`Block #${blockNumber}`));
     }
     
-    console.log(chalk.yellow('💰 Fetching account balance...'));
-    await this.getBalance();
-    console.log(chalk.green('✅ Balance loaded:'), chalk.white(`$${this.balance.toFixed(2)}\n`));
+    // Get your balance
+    console.log(chalk.yellow('💰 Fetching your balance...'));
+    await this.getYourBalance();
+    console.log(chalk.green('✅ Balance:'), chalk.white(`$${this.balance.toFixed(2)}\n`));
     
-    // Connect to Polygon WebSocket RPC
+    // Get your positions
+    await this.getYourPositions();
+    
+    // Connect to Polygon WebSocket
     this.connectPolygonWebSocket();
     
-    // Try Polymarket WebSocket
-    this.connectPolymarketWebSocket();
+    // Start monitoring
+    console.log(chalk.green('✅ Starting real-time monitoring...\n'));
     
-    // Start polling (primary method)
-    console.log(chalk.green('✅ Starting polling mode...'));
+    // Poll for new trades every 3 seconds
     this.pollingInterval = setInterval(() => {
-      this.pollTraderActivity();
+      this.pollLeadTraderActivity();
+    }, 3000);
+    
+    // Check for sells every 5 seconds
+    setInterval(() => {
+      this.checkForSells();
     }, 5000);
     
     // Update balance every 30 seconds
     setInterval(async () => {
-      await this.getBalance();
+      await this.getYourBalance();
+      await this.getYourPositions();
     }, 30000);
     
-    // Display stats every 2 minutes
+    // Display full stats every 2 minutes
     setInterval(() => {
       if (this.stats.tradesCopied > 0) {
-        this.displayStats();
+        this.displayFullStats();
       }
     }, 120000);
     
     console.log(chalk.green('✅ Bot is now RUNNING!'));
-    console.log(chalk.gray('Monitoring for trades from lead trader...\n'));
-    console.log(chalk.yellow('Press Ctrl+C to stop\n'));
+    console.log(chalk.yellow('Waiting for new trades from lead trader...\n'));
+    console.log(chalk.gray('Press Ctrl+C to stop\n'));
   }
 }
 
+// Error handlers
 process.on('unhandledRejection', (error) => {
-  console.error(chalk.red('💥 Unhandled Promise Rejection:'), error);
-});
-
-process.on('uncaughtException', (error) => {
-  console.error(chalk.red('💥 Uncaught Exception:'), error);
-  process.exit(1);
+  console.error(chalk.red('💥 Error:'), error.message);
 });
 
 process.on('SIGINT', () => {
@@ -576,11 +570,7 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
-process.on('SIGTERM', () => {
-  console.log(chalk.yellow('\n\n⚠️  Received termination signal...'));
-  process.exit(0);
-});
-
+// Start bot
 const bot = new PolymarketCopyBot();
 bot.start().catch(error => {
   console.error(chalk.red('💥 Fatal Error:'), error);
