@@ -6,6 +6,7 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 CYAN='\033[0;36m'
+MAGENTA='\033[0;35m'
 NC='\033[0m' # No Color
 
 clear
@@ -13,25 +14,44 @@ clear
 echo -e "${GREEN}"
 echo "╔════════════════════════════════════════════════╗"
 echo "║   🚀 Polymarket Copy Trading Bot Installer    ║"
-echo "║                                                ║"
+echo "║        Automated Setup - Step by Step          ║"
 echo "╚════════════════════════════════════════════════╝"
 echo -e "${NC}"
 echo ""
 
-# Function to read input with default value
-read_input() {
+# Function to pause and wait for user
+pause() {
+    echo ""
+    echo -e "${YELLOW}Press ENTER to continue...${NC}"
+    read
+    echo ""
+}
+
+# Function to read input with validation
+read_value() {
     local prompt="$1"
     local default="$2"
-    local value
+    local value=""
     
-    if [ -n "$default" ]; then
-        echo -e -n "${CYAN}$prompt${NC} [${YELLOW}$default${NC}]: "
-    else
-        echo -e -n "${CYAN}$prompt${NC}: "
-    fi
+    while [ -z "$value" ]; do
+        echo -e "${CYAN}$prompt${NC}"
+        if [ -n "$default" ]; then
+            echo -e "${YELLOW}(Press ENTER for default: $default)${NC}"
+        fi
+        echo -n "> "
+        read input
+        
+        if [ -n "$input" ]; then
+            value="$input"
+        elif [ -n "$default" ]; then
+            value="$default"
+        else
+            echo -e "${RED}❌ This field is required!${NC}"
+            echo ""
+        fi
+    done
     
-    read value
-    echo "${value:-$default}"
+    echo "$value"
 }
 
 # Check if Node.js is installed
@@ -42,7 +62,7 @@ if ! command -v node &> /dev/null; then
     sudo apt-get install -y nodejs >/dev/null 2>&1
 fi
 echo -e "${GREEN}✅ Node.js $(node -v) ready${NC}"
-echo ""
+pause
 
 # Create project directory
 echo -e "${BLUE}[2/8] Setting up project directory...${NC}"
@@ -55,11 +75,11 @@ fi
 
 mkdir -p "$PROJECT_DIR"
 cd "$PROJECT_DIR"
-echo -e "${GREEN}✅ Project directory created${NC}"
-echo ""
+echo -e "${GREEN}✅ Project directory created: $(pwd)${NC}"
+pause
 
 # Install dependencies
-echo -e "${BLUE}[3/8] Installing dependencies...${NC}"
+echo -e "${BLUE}[3/8] Installing required packages...${NC}"
 cat > package.json << 'EOF'
 {
   "name": "polymarket-copy-bot",
@@ -68,11 +88,9 @@ cat > package.json << 'EOF'
   "main": "bot.js",
   "type": "module",
   "scripts": {
-    "start": "node bot.js",
-    "dev": "node bot.js"
+    "start": "node bot.js"
   },
   "keywords": ["polymarket", "trading", "bot"],
-  "author": "",
   "license": "MIT",
   "dependencies": {
     "axios": "^1.6.2",
@@ -84,34 +102,149 @@ cat > package.json << 'EOF'
 EOF
 
 npm install --silent 2>&1 | grep -v "npm WARN"
-echo -e "${GREEN}✅ Dependencies installed${NC}"
-echo ""
+echo -e "${GREEN}✅ All packages installed successfully${NC}"
+pause
 
-# Interactive Configuration
-echo -e "${BLUE}[4/8] Configuration Setup${NC}"
+# Start Configuration
+clear
+echo -e "${MAGENTA}"
+echo "╔════════════════════════════════════════════════╗"
+echo "║           🔧 CONFIGURATION WIZARD 🔧           ║"
+echo "╚════════════════════════════════════════════════╝"
+echo -e "${NC}"
+echo ""
+echo -e "${YELLOW}Ab hum aapki trading bot ko configure karenge.${NC}"
+echo -e "${YELLOW}Har step ko dhyan se follow karen.${NC}"
+pause
+
+# Step 1: API Key
+clear
+echo -e "${BLUE}[4/8] Step 1 of 5: Polymarket API Key${NC}"
 echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
-echo -e "${CYAN}Please provide your Polymarket credentials:${NC}"
-echo -e "${YELLOW}(Get these from: https://polymarket.com/settings -> Builder tab)${NC}"
+echo -e "${CYAN}📌 Kya hai ye?${NC}"
+echo "   API Key aapki identity hai Polymarket par."
 echo ""
+echo -e "${CYAN}📌 Kaise milega?${NC}"
+echo "   1. Browser mein jao: ${GREEN}https://polymarket.com/settings${NC}"
+echo "   2. ${YELLOW}'Builder'${NC} tab par click karo"
+echo "   3. ${YELLOW}'Create API Key'${NC} button press karo"
+echo "   4. Sabse pehli value jo dikhegi wo ${GREEN}API Key${NC} hai"
+echo ""
+echo -e "${CYAN}📌 Example:${NC}"
+echo "   550e8400-e29b-41d4-a716-446655440000"
+echo ""
+API_KEY=$(read_value "Apni POLY_API_KEY yahan paste karen:" "")
+echo -e "${GREEN}✅ API Key saved${NC}"
+pause
 
-# Read API credentials
-API_KEY=$(read_input "Enter your POLY_API_KEY" "")
-API_SECRET=$(read_input "Enter your POLY_API_SECRET" "")
-API_PASSPHRASE=$(read_input "Enter your POLY_PASSPHRASE" "")
+# Step 2: API Secret
+clear
+echo -e "${BLUE}[5/8] Step 2 of 5: Polymarket API Secret${NC}"
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
+echo -e "${CYAN}📌 Kya hai ye?${NC}"
+echo "   API Secret ek secure code hai jo aapke orders ko authenticate karta hai."
+echo ""
+echo -e "${CYAN}📌 Kaise milega?${NC}"
+echo "   Same jagah se jahan API Key mila tha:"
+echo "   1. ${GREEN}https://polymarket.com/settings${NC} > Builder tab"
+echo "   2. ${GREEN}API Key${NC} ke neeche ${YELLOW}Secret${NC} dikhega"
+echo "   3. Wo copy karen (long base64 string hogi)"
+echo ""
+echo -e "${CYAN}📌 Example:${NC}"
+echo "   dGhpc2lzYXNlY3JldGtleWV4YW1wbGU="
+echo ""
+API_SECRET=$(read_value "Apna POLY_API_SECRET yahan paste karen:" "")
+echo -e "${GREEN}✅ API Secret saved${NC}"
+pause
 
-echo -e "${CYAN}Wallet Configuration:${NC}"
-YOUR_WALLET=$(read_input "Enter YOUR wallet address" "0x")
-LEAD_TRADER=$(read_input "Enter LEAD TRADER address" "0x6031b6eed1c97e853c6e0f03ad3ce3529351f96d")
+# Step 3: Passphrase
+clear
+echo -e "${BLUE}[6/8] Step 3 of 5: Polymarket API Passphrase${NC}"
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
+echo -e "${CYAN}📌 Kya hai ye?${NC}"
+echo "   Passphrase ek additional security layer hai."
+echo ""
+echo -e "${CYAN}📌 Kaise milega?${NC}"
+echo "   API Key aur Secret ke saath hi ye bhi dikhta hai:"
+echo "   1. ${GREEN}https://polymarket.com/settings${NC} > Builder tab"
+echo "   2. ${YELLOW}Passphrase${NC} field se copy karen"
+echo ""
+echo -e "${CYAN}📌 Example:${NC}"
+echo "   mySecurePassphrase123"
+echo ""
+API_PASSPHRASE=$(read_value "Apna POLY_PASSPHRASE yahan paste karen:" "")
+echo -e "${GREEN}✅ API Passphrase saved${NC}"
+pause
 
-echo -e "${CYAN}Trading Settings:${NC}"
-AMOUNT_PER_TRADE=$(read_input "Amount per trade (USD)" "10")
+# Step 4: Your Wallet
+clear
+echo -e "${BLUE}[7/8] Step 4 of 5: Aapka Polymarket Wallet Address${NC}"
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
+echo -e "${CYAN}📌 Kya hai ye?${NC}"
+echo "   Ye aapka Polymarket wallet address hai jahan aapka USDC hai."
+echo ""
+echo -e "${CYAN}📌 Kaise milega?${NC}"
+echo "   1. ${GREEN}https://polymarket.com${NC} par jao"
+echo "   2. Top-right corner mein apna ${YELLOW}profile${NC} click karo"
+echo "   3. Wallet address dikhega (${YELLOW}0x${NC} se shuru hoga)"
+echo "   4. Copy karo"
+echo ""
+echo -e "${CYAN}📌 Example:${NC}"
+echo "   0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb"
+echo ""
+echo -e "${RED}⚠️  IMPORTANT:${NC} Is wallet mein USDC hona chahiye!"
+echo ""
+YOUR_WALLET=$(read_value "Apna wallet address (0x se shuru) yahan paste karen:" "")
+echo -e "${GREEN}✅ Your wallet address saved${NC}"
+pause
+
+# Step 5: Lead Trader
+clear
+echo -e "${BLUE}[8/8] Step 5 of 5: Lead Trader Ka Wallet Address${NC}"
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+echo -e "${CYAN}📌 Kya hai ye?${NC}"
+echo "   Jis trader ki trades copy karni hain uska wallet address."
+echo ""
+echo -e "${CYAN}📌 Kaise milega?${NC}"
+echo "   1. ${GREEN}https://polymarket.com/leaderboard${NC} par jao"
+echo "   2. Successful traders dekho"
+echo "   3. Unka wallet address copy karo"
+echo ""
+echo -e "${CYAN}📌 Ya default use karen:${NC}"
+echo "   ${GREEN}0x6031b6eed1c97e853c6e0f03ad3ce3529351f96d${NC}"
+echo "   (Active trader - gabagool22)"
+echo ""
+LEAD_TRADER=$(read_value "Lead trader ka wallet address:" "0x6031b6eed1c97e853c6e0f03ad3ce3529351f96d")
+echo -e "${GREEN}✅ Lead trader address saved${NC}"
+pause
+
+# Step 6: Amount
+clear
+echo -e "${BLUE}[BONUS] Trading Amount Setting${NC}"
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+echo -e "${CYAN}📌 Kya hai ye?${NC}"
+echo "   Har trade mein kitne dollars lagane hain."
+echo ""
+echo -e "${CYAN}📌 Examples:${NC}"
+echo "   • ${YELLOW}10${NC}  = Har trade mein $10 lagega"
+echo "   • ${YELLOW}50${NC}  = Har trade mein $50 lagega"
+echo "   • ${YELLOW}100${NC} = Har trade mein $100 lagega"
+echo ""
+echo -e "${RED}⚠️  Note:${NC} Aapke wallet mein kam se kam itna USDC hona chahiye."
+echo ""
+AMOUNT_PER_TRADE=$(read_value "Har trade mein kitne dollars lagane hain?" "10")
+echo -e "${GREEN}✅ Trading amount set: \$$AMOUNT_PER_TRADE${NC}"
+pause
 
 # Create .env file
-echo -e "${BLUE}[5/8] Creating configuration file...${NC}"
+clear
+echo -e "${BLUE}Saving configuration...${NC}"
 cat > .env << EOF
 # Polymarket API Credentials
 POLY_API_KEY=$API_KEY
@@ -129,11 +262,11 @@ AMOUNT_PER_TRADE=$AMOUNT_PER_TRADE
 POLYGON_RPC_HTTP=https://polygon-mainnet.g.alchemy.com/v2/demo
 POLYGON_RPC_WS=wss://polygon-mainnet.g.alchemy.com/v2/demo
 EOF
-echo -e "${GREEN}✅ Configuration saved${NC}"
-echo ""
+echo -e "${GREEN}✅ Configuration file created${NC}"
+sleep 1
 
 # Download bot.js
-echo -e "${BLUE}[6/8] Downloading bot code...${NC}"
+echo -e "${BLUE}Installing bot code...${NC}"
 cat > bot.js << 'EOFBOT'
 import WebSocket from 'ws';
 import axios from 'axios';
@@ -263,11 +396,6 @@ class PolymarketCopyBot {
     console.log(chalk.bgGreen.black('║     🚀 POLYMARKET COPY TRADING BOT 🚀   ║'));
     console.log(chalk.bgGreen.black('╚══════════════════════════════════════════╝\n'));
     
-    if (!this.yourWalletAddress || this.yourWalletAddress.includes('0x0')) {
-      console.error(chalk.red('❌ Invalid YOUR_WALLET_ADDRESS'));
-      process.exit(1);
-    }
-    
     console.log(chalk.cyan('🔧 Configuration:'));
     console.log(chalk.gray('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
     console.log(chalk.blue('Your Wallet:  '), chalk.white(this.yourWalletAddress));
@@ -302,10 +430,9 @@ bot.start().catch(error => {
 EOFBOT
 
 echo -e "${GREEN}✅ Bot code installed${NC}"
-echo ""
+sleep 1
 
 # Create start script
-echo -e "${BLUE}[7/8] Creating quick-start script...${NC}"
 cat > start.sh << 'EOFSTART'
 #!/bin/bash
 clear
@@ -314,8 +441,6 @@ node bot.js
 EOFSTART
 
 chmod +x start.sh
-echo -e "${GREEN}✅ Start script created${NC}"
-echo ""
 
 # Create README
 cat > README.md << 'EOFREADME'
@@ -327,72 +452,57 @@ cat > README.md << 'EOFREADME'
 ./start.sh
 ```
 
-or
-
-```bash
-npm start
-```
-
 ## Configuration
 
 Edit `.env` file to update settings.
 
-## Features
-
-- ✅ Real-time trade monitoring
-- ✅ Automatic position sizing
-- ✅ Live balance tracking
-- ✅ Duplicate prevention
-
 ## Support
 
-For issues, check the logs or reconfigure `.env`
+For help, check the configuration in `.env` file.
 EOFREADME
 
-echo -e "${BLUE}[8/8] Final setup...${NC}"
-echo ""
-
-# Verify configuration
-echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${GREEN}Configuration Summary:${NC}"
-echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${CYAN}API Key:${NC}        ${API_KEY:0:20}..."
-echo -e "${CYAN}Your Wallet:${NC}    $YOUR_WALLET"
-echo -e "${CYAN}Lead Trader:${NC}    $LEAD_TRADER"
-echo -e "${CYAN}Per Trade:${NC}      \$$AMOUNT_PER_TRADE"
-echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo ""
-
-# Success
+# Final Summary
+clear
 echo -e "${GREEN}"
 echo "╔════════════════════════════════════════════════╗"
 echo "║          ✅ INSTALLATION COMPLETE! ✅          ║"
 echo "╚════════════════════════════════════════════════╝"
 echo -e "${NC}"
 echo ""
-echo -e "${CYAN}🚀 To start the bot right now:${NC}"
+echo -e "${YELLOW}📋 Configuration Summary:${NC}"
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${CYAN}Your Wallet:${NC}    ${GREEN}$YOUR_WALLET${NC}"
+echo -e "${CYAN}Lead Trader:${NC}    ${GREEN}$LEAD_TRADER${NC}"
+echo -e "${CYAN}Per Trade:${NC}      ${GREEN}\$$AMOUNT_PER_TRADE${NC}"
+echo -e "${CYAN}API Key:${NC}        ${GREEN}${API_KEY:0:30}...${NC}"
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+echo -e "${CYAN}🚀 Bot chalane ke liye:${NC}"
 echo ""
 echo -e "   ${GREEN}./start.sh${NC}"
 echo ""
-echo -e "${CYAN}📝 To edit configuration later:${NC}"
+echo -e "${YELLOW}⚠️  Important Checks:${NC}"
+echo "   ✓ Aapke wallet mein USDC hai?"
+echo "   ✓ API credentials sahi hain?"
+echo "   ✓ Internet connection stable hai?"
 echo ""
-echo -e "   ${BLUE}nano .env${NC}"
-echo ""
-echo -e "${YELLOW}⚠️  Important Notes:${NC}"
-echo "   • Make sure you have USDC in your Polymarket wallet"
-echo "   • Bot will monitor trades every 3 seconds"
-echo "   • Press Ctrl+C to stop the bot"
-echo ""
-echo -e "${GREEN}Ready to copy trade! 🎯${NC}"
+echo -e "${GREEN}Sab ready hai! Bot start karne ke liye upar wala command chalayein.${NC}"
 echo ""
 
 # Auto-start option
-echo -e -n "${CYAN}Start bot now? (y/n)${NC} [${GREEN}y${NC}]: "
+echo -e -n "${CYAN}Abhi bot start karen? (y/n)${NC} [${GREEN}y${NC}]: "
 read START_NOW
 
 if [ -z "$START_NOW" ] || [ "$START_NOW" = "y" ] || [ "$START_NOW" = "Y" ]; then
     echo ""
-    echo -e "${GREEN}Starting bot...${NC}"
+    echo -e "${GREEN}Starting bot in 3 seconds...${NC}"
     sleep 1
+    echo -e "${YELLOW}3...${NC}"
+    sleep 1
+    echo -e "${YELLOW}2...${NC}"
+    sleep 1
+    echo -e "${YELLOW}1...${NC}"
+    sleep 1
+    clear
     ./start.sh
 fi
