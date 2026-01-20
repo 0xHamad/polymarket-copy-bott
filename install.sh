@@ -121,9 +121,14 @@ echo -e "  ${GREEN}2.${NC} 'Builder' tab mein jao"
 echo -e "  ${GREEN}3.${NC} 'Create API Key' click karo"
 echo ""
 
-read -p "$(echo -e ${BOLD}${CYAN}Enter API Key${NC}): " API_KEY
-read -p "$(echo -e ${BOLD}${CYAN}Enter API Secret${NC}): " API_SECRET
-read -p "$(echo -e ${BOLD}${CYAN}Enter Passphrase${NC}): " API_PASSPHRASE
+echo -e -n "${BOLD}${CYAN}Enter API Key: ${NC}"
+read API_KEY
+
+echo -e -n "${BOLD}${CYAN}Enter API Secret: ${NC}"
+read API_SECRET
+
+echo -e -n "${BOLD}${CYAN}Enter Passphrase: ${NC}"
+read API_PASSPHRASE
 echo ""
 
 # Section 2: Wallet Addresses
@@ -132,11 +137,13 @@ echo -e "${BOLD}${GREEN}💰 SECTION 2: WALLET ADDRESSES${NC}"
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
-read -p "$(echo -e ${BOLD}${CYAN}Your Wallet Address${NC} ${YELLOW}(0x...)${NC}): " YOUR_WALLET
+echo -e -n "${BOLD}${CYAN}Your Wallet Address ${YELLOW}(0x...): ${NC}"
+read YOUR_WALLET
 echo -e "${YELLOW}💡 Ye aapka Polymarket wallet hai (Profile > Wallet Address)${NC}"
 echo ""
 
-read -p "$(echo -e ${BOLD}${CYAN}Lead Trader Address${NC} ${YELLOW}[Enter for default]${NC}): " LEAD_TRADER
+echo -e -n "${BOLD}${CYAN}Lead Trader Address ${YELLOW}[Enter for default]: ${NC}"
+read LEAD_TRADER
 LEAD_TRADER=${LEAD_TRADER:-0x6031b6eed1c97e853c6e0f03ad3ce3529351f96d}
 echo -e "${GREEN}✓ Using: ${LEAD_TRADER:0:10}...${LEAD_TRADER: -8}${NC}"
 echo ""
@@ -147,7 +154,8 @@ echo -e "${BOLD}${GREEN}💵 SECTION 3: TRADING AMOUNT${NC}"
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
-read -p "$(echo -e ${BOLD}${CYAN}Amount Per Trade in \$USD${NC} ${YELLOW}[10]${NC}): " AMOUNT
+echo -e -n "${BOLD}${CYAN}Amount Per Trade in \$USD ${YELLOW}[10]: ${NC}"
+read AMOUNT
 AMOUNT=${AMOUNT:-10}
 echo -e "${GREEN}✓ Har trade mein lagega: \$$AMOUNT${NC}"
 echo ""
@@ -171,11 +179,12 @@ echo -e "  ${CYAN}HTTP:${NC} https://polygon-mainnet.g.alchemy.com/v2/YOUR_KEY"
 echo -e "  ${CYAN}WSS:${NC}  wss://polygon-mainnet.g.alchemy.com/v2/YOUR_KEY"
 echo ""
 
-read -p "$(echo -e ${BOLD}${CYAN}Polygon RPC HTTP URL${NC} ${YELLOW}[Enter for demo]${NC}): " POLYGON_HTTP
+echo -e -n "${BOLD}${CYAN}Polygon RPC HTTP URL ${YELLOW}[Enter for demo]: ${NC}"
+read POLYGON_HTTP
 POLYGON_HTTP=${POLYGON_HTTP:-https://polygon-mainnet.g.alchemy.com/v2/demo}
-echo ""
 
-read -p "$(echo -e ${BOLD}${CYAN}Polygon RPC WebSocket URL${NC} ${YELLOW}[Enter for demo]${NC}): " POLYGON_WSS
+echo -e -n "${BOLD}${CYAN}Polygon RPC WebSocket URL ${YELLOW}[Enter for demo]: ${NC}"
+read POLYGON_WSS
 POLYGON_WSS=${POLYGON_WSS:-wss://polygon-mainnet.g.alchemy.com/v2/demo}
 echo ""
 
